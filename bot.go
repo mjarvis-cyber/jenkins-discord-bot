@@ -703,7 +703,7 @@ func (bot *Bot) runPipelineWithParameters(message string) error {
 }
 
 // Example method to trigger Jenkins pipeline with parameters
-func (bot *Bot) triggerJenkinsPipeline(pipelineName string, parameters map[string][]string) error {
+func (bot *Bot) triggerJenkinsPipelineParams(pipelineName string, parameters map[string][]string) error {
 	// TODO: Implement the logic to trigger Jenkins pipeline with parameters
 	fmt.Printf("Triggering Jenkins pipeline: %s with parameters: %v\n", pipelineName, parameters)
 	return nil
