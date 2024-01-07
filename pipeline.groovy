@@ -134,6 +134,7 @@ pipeline {
                         if (!waitForOutput) {
                             error "Expected output 'Bot is connected to Discord' not received within ${timeout} seconds"
                         } else {
+                            sh 'pkill -f discord_bot'
                             sh "cp $CUSTOM_WORKSPACE/jenkins-discord-bot/discord_bot_test $CUSTOM_WORKSPACE/discord_bot"
                             sh "cp $CUSTOM_WORKSPACE/jenkins-discord-bot/.env $CUSTOM_WORKSPACE"
                         }
