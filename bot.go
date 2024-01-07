@@ -690,7 +690,7 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 			parameters[currentParamKey] = append(parameters[currentParamKey], line)
 		}
 	}
-    url := fmt.Sprintf("%s/job/%s/build", JenkinsURL, pipelineName)
+    url := fmt.Sprintf("%s/job/%s/buildWithParameters", JenkinsURL, pipelineName)
 	err := bot.triggerJenkinsPipelineParams(url, parameters)
 	if err != nil {
 		return "", fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
@@ -706,7 +706,8 @@ func (bot *Bot) triggerJenkinsPipelineParams(url string, parameters map[string][
     if err != nil {
         return err
     }
-
+    Logger.Println("json Params: ", jsonParams)
+    Logger.Println("url: ", url)
     req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonParams))
     if err != nil {
         return err
