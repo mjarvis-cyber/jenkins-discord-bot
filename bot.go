@@ -159,6 +159,14 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 			return
 		}
 		session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Parameters from previous run:%s", parameters))
+	case strings.HasPrefix(message.Content, "!runparams"):
+		// Handle !runparams command
+		err := bot.runPipelineWithParameters(message.Content)
+		if err != nil {
+			session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Error handling !runparams: %v", err))
+			return
+		}
+		session.ChannelMessageSend(message.ChannelID, "Pipeline triggered with parameters!")
 	case strings.HasPrefix(message.Content, "!help"):
 		// Provide help information for each command
 		helpMsg := "Available Commands:\n" +
@@ -166,7 +174,8 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 			"!run <pipeline_name> ---------> Triggers a Jenkins pipeline with the specified name\n" +
 			"!proceed <pipeline_name> ----> Proceeds the current stage of a pipeline\n" +
 			"!abort <pipeline_name> -------> Aborts the current stage of a pipeline\n" +
-			"!parameters <pipeline_name> -> Fetches the parameters from the previous build"
+			"!parameters <pipeline_name> -> Fetches the parameters from the previous build\n\n" +
+            "!runparams\n<pipeline_name\n\nparameterKey\nparametervalue1\nparametervalue2\n\nparameterKey2\nparametervalue"
 		session.ChannelMessageSend(message.ChannelID, helpMsg)
 	}
 
@@ -643,4 +652,59 @@ func (bot *Bot) fetchJenkinsJobParameters(pipelineName string) (string, error) {
 
     // If the build with the matching runNumber is not found
     return "", fmt.Errorf("build with runNumber %d not found", runNumber)
+}
+
+func (bot *Bot) runPipelineWithParameters(message string) error {
+	// Split the message into lines
+	lines := strings.Split(message, "\n")
+
+	// Ensure the message has at least three lines (command, pipeline name, and parameters)
+	if len(lines) < 3 {
+		return fmt.Errorf("invalid message format")
+	}
+
+	// Extract pipeline name from the second line
+	pipelineName := strings.TrimSpace(lines[1])
+
+	// Extract parameters from the remaining lines
+	parameters := make(map[string][]string)
+	var currentParamKey string
+
+	for _, line := range lines[2:] {
+		// Trim leading and trailing whitespaces
+		line = strings.TrimSpace(line)
+
+		// Skip empty lines
+		if line == "" {
+			continue
+		}
+
+		// Check if the line is a parameter key
+		if currentParamKey == "" {
+			// Set the current line as the parameter key
+			currentParamKey = line
+			parameters[currentParamKey] = nil
+		} else {
+			// Add the line as a parameter value
+			parameters[currentParamKey] = append(parameters[currentParamKey], line)
+		}
+	}
+
+	// Now you have the pipelineName and parameters, you can trigger the Jenkins pipeline
+	// Use the Jenkins API to run the pipeline with the specified parameters
+
+	// Example: Trigger pipeline using bot's method (replace with your actual method)
+	err := bot.triggerJenkinsPipelineParams(pipelineName, parameters)
+	if err != nil {
+		return fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
+	}
+
+	return nil
+}
+
+// Example method to trigger Jenkins pipeline with parameters
+func (bot *Bot) triggerJenkinsPipeline(pipelineName string, parameters map[string][]string) error {
+	// TODO: Implement the logic to trigger Jenkins pipeline with parameters
+	fmt.Printf("Triggering Jenkins pipeline: %s with parameters: %v\n", pipelineName, parameters)
+	return nil
 }
