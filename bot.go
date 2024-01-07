@@ -690,8 +690,7 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 			parameters[currentParamKey] = append(parameters[currentParamKey], line)
 		}
 	}
-    url := fmt.Sprintf("%s/job/%s/buildWithParameters", JenkinsURL, pipelineName)
-	err := bot.triggerJenkinsPipelineParams(url, parameters)
+	err := bot.triggerJenkinsPipelineParams(pipelineName, parameters)
 	if err != nil {
 		return "", fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
 	}
@@ -699,21 +698,26 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 	return pipelineName, nil
 }
 
-// triggerPipelineWithParameters triggers a Jenkins pipeline with the given URL and parameters.
-func (bot *Bot) triggerJenkinsPipelineParams(url string, parameters map[string][]string) error {
-    // Prepare parameters in JSON format
+// triggerPipelineWithParameters triggers a Jenkins pipeline with the given parameters.
+func (bot *Bot) triggerJenkinsPipelineParams(jobName string, parameters map[string][]string) error {
+    // Prepare parameters in the expected format for Jenkins API.
     jsonParams, err := json.Marshal(map[string]interface{}{"parameter": prepareParameters(parameters)})
     if err != nil {
         return err
     }
-    Logger.Println("json Params: ", jsonParams)
+
+    // Build the Jenkins job URL with parameters.
+    jenkinsURL := fmt.Sprintf("%s/job/%s/buildWithParameters?", JenkinsURL, jobName)
+
+    jsonString := string(jsonParams)
+    Logger.Println("json Params: ", jsonString)
     Logger.Println("url: ", url)
-    req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonParams))
+    req, err := http.NewRequest("POST", jenkinsURL, bytes.NewBuffer(jsonParams))
     if err != nil {
         return err
     }
 
-    // Set Jenkins authorization header and content type
+    // Set Jenkins authorization header and content type.
     authHeader := fmt.Sprintf("Basic %s", base64.StdEncoding.EncodeToString([]byte("jenkins:"+JenkinsToken)))
     req.Header.Set("Authorization", authHeader)
     req.Header.Set("Content-Type", "application/json")
@@ -742,4 +746,3 @@ func prepareParameters(parameters map[string][]string) []map[string]interface{} 
     }
     return result
 }
-
