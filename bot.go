@@ -102,7 +102,7 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 			session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Error handling !runparams: %v", err))
 			return
 		}
-		session.ChannelMessageSend(message.ChannelID, "Triggered %s with parameters!", pipelineName)
+		session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Jenkins pipeline '%s' triggered successfully!", pipelineName))
 	case strings.HasPrefix(message.Content, "!run"):
 		// Extract the pipeline name from the message
 		parts := strings.Fields(message.Content)
