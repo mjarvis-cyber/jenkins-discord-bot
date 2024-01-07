@@ -1,6 +1,7 @@
 package main
 
 import (
+    "bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -377,7 +378,6 @@ func (bot *Bot) fetchJenkinsJobRunNumber(jobName string) (int, error) {
 func (bot *Bot) triggerJenkinsPipeline(pipelineName string) error {
     // Attempt to trigger pipeline without parameters
     urlWithoutParams := fmt.Sprintf("%s/job/%s/build", JenkinsURL, pipelineName)
-    urlWithParams := fmt.Sprintf("%s/job/%s/buildWithParameters", JenkinsURL, pipelineName)
     err := bot.triggerPipelineWithURL(urlWithoutParams)
 
     if err != nil {
@@ -704,7 +704,7 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 }
 
 // triggerPipelineWithParameters triggers a Jenkins pipeline with the given URL and parameters.
-func (bot *Bot) triggerJenkinsPipelineParams(url string, parameters map[string]string) error {
+func (bot *Bot) triggerJenkinsPipelineParams(url string, parameters map[string][]string) error {
     // Prepare parameters in JSON format
     jsonParams, err := json.Marshal(map[string]interface{}{"parameter": prepareParameters(parameters)})
     if err != nil {
@@ -735,12 +735,14 @@ func (bot *Bot) triggerJenkinsPipelineParams(url string, parameters map[string]s
 }
 
 // prepareParameters prepares parameters in the expected format for Jenkins API.
-func prepareParameters(parameters map[string]string) []map[string]interface{} {
+func prepareParameters(parameters map[string][]string) []map[string]interface{} {
     var result []map[string]interface{}
 
-    for key, value := range parameters {
-        result = append(result, map[string]interface{}{"name": key, "value": value})
+    for key, values := range parameters {
+        for _, value := range values {
+            result = append(result, map[string]interface{}{"name": key, "value": value})
+        }
     }
-
     return result
 }
+
