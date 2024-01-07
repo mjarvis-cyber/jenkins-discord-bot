@@ -143,7 +143,7 @@ pipeline {
         }
         stage('Release to changes to git') {
             when {
-                expression { params.GIT_REPO == 'develop' }
+                expression { params.BRANCH == 'develop' }
             }
             steps {
                 script {
