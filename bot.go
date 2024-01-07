@@ -711,7 +711,7 @@ func (bot *Bot) triggerJenkinsPipelineParams(jobName string, parameters map[stri
 
     jsonString := string(jsonParams)
     Logger.Println("json Params: ", jsonString)
-    Logger.Println("url: ", url)
+    Logger.Println("url: ", jenkinsURL)
     req, err := http.NewRequest("POST", jenkinsURL, bytes.NewBuffer(jsonParams))
     if err != nil {
         return err
