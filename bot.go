@@ -97,12 +97,12 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 		session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Jenkins Job List:\n%s", jobList))
 	case strings.HasPrefix(message.Content, "!runparams"):
 		// Handle !runparams command
-		err := bot.runPipelineWithParameters(message.Content)
+		pipelineName, err := bot.runPipelineWithParameters(message.Content)
 		if err != nil {
 			session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Error handling !runparams: %v", err))
 			return
 		}
-		session.ChannelMessageSend(message.ChannelID, "Pipeline triggered with parameters!")
+		session.ChannelMessageSend(message.ChannelID, "Triggered %s with parameters!", pipelineName)
 	case strings.HasPrefix(message.Content, "!run"):
 		// Extract the pipeline name from the message
 		parts := strings.Fields(message.Content)
@@ -654,13 +654,13 @@ func (bot *Bot) fetchJenkinsJobParameters(pipelineName string) (string, error) {
     return "", fmt.Errorf("build with runNumber %d not found", runNumber)
 }
 
-func (bot *Bot) runPipelineWithParameters(message string) error {
+func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 	// Split the message into lines
 	lines := strings.Split(message, "\n")
 
 	// Ensure the message has at least three lines (command, pipeline name, and parameters)
 	if len(lines) < 3 {
-		return fmt.Errorf("invalid message format")
+		return "", fmt.Errorf("invalid message format")
 	}
 
 	// Extract pipeline name from the second line
@@ -696,10 +696,10 @@ func (bot *Bot) runPipelineWithParameters(message string) error {
 	// Example: Trigger pipeline using bot's method (replace with your actual method)
 	err := bot.triggerJenkinsPipelineParams(pipelineName, parameters)
 	if err != nil {
-		return fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
+		return "", fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
 	}
 
-	return nil
+	return pipelineName, nil
 }
 
 // Example method to trigger Jenkins pipeline with parameters
