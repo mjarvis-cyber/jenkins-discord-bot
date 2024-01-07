@@ -1,0 +1,205 @@
+pipeline {
+    agent {
+        label 'master'
+    }
+    environment {
+        CUSTOM_WORKSPACE = "$JENKINS_HOME/workspace/discord_bot"
+    }
+    parameters {
+        string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:OrangeSquirter/jenkins-discord-bot.git')
+        reactiveChoice(
+            name: 'BRANCH',
+            description: 'Select the branch you wish to run',
+            choiceType: 'PT_SINGLE_SELECT',
+            script: [
+                $class: 'GroovyScript',
+                fallbackScript: [
+                    classpath: [],
+                    sandbox: false,
+                    script: 'return []'
+                ],
+                script: [
+                    classpath: [],
+                    sandbox: false,
+                    script: '''
+                    def command = "git ls-remote --heads ${GIT_REPO}"
+                    def proc = command.execute()
+                    proc.waitFor()
+                    
+                    if (proc.exitValue() != 0) {
+                        println 'Failed to fetch branches'
+                        return []
+                    }
+
+                    def output = proc.in.text
+                    def branches = output.readLines().collect {
+                        it.replaceAll(/.*refs\\/heads\\//, '').trim()
+                    }
+                    return branches.reverse()
+                    '''
+                ]
+            ],
+            referencedParameters: 'GIT_REPO'
+        )
+    }
+
+    stages {
+        stage('Run Discord Bot') {
+            steps {
+                script {
+                    dir("${CUSTOM_WORKSPACE}") {
+                        // Run the binary using 'script' to create a pseudo-terminal
+                        sh "script -q -c './discord_bot' /dev/null &"
+                        sh "rm -f $CUSTOM_WORKSPACE/.env"
+
+                    }
+                }
+            }
+        }
+        stage('Wait for Proceed') {
+            steps {
+                script {
+                    dir("${CUSTOM_WORKSPACE}") {
+                        // Wait for user input to proceed
+                        withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
+                            discordSend title: "Discord Bot", description: "Click 'Proceed' to build new discord bot version", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
+                        }
+                        input message: 'Press "Proceed" to build new bot', submitter: 'user'
+                    }
+                }
+            }
+        }
+        stage('Build new version') {
+            environment {
+                HTTP_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
+                HTTPS_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
+            }
+            steps {
+                script {
+                    dir("${CUSTOM_WORKSPACE}") {
+                        sh "rm -rf jenkins-discord-bot*"
+                        sh "git clone ${params.GIT_REPO} --branch ${params.BRANCH}"
+                        dir("jenkins-discord-bot") {
+                            sh "go mod init bot"
+                            sh "go get github.com/bwmarrin/discordgo"
+                            sh "go get github.com/joho/godotenv"
+                            withCredentials([string(credentialsId: 'JENKINS_CREDENTIAL_ID', variable: 'JENKINS_API_TOKEN')]) {
+                                // Replace values in the .env file with Jenkins credentials
+                                sh "sed -i 's|JENKINS_TOKEN=.*|JENKINS_TOKEN=${JENKINS_API_TOKEN}|' .env"
+                            }
+
+                            withCredentials([string(credentialsId: 'DISCORD_CREDENTIAL_ID', variable: 'DISCORD_API_TOKEN')]) {
+                                // Replace values in the .env file with Jenkins credentials
+                                sh "sed -i 's|DISCORD_TOKEN=.*|DISCORD_TOKEN=${DISCORD_API_TOKEN}|' .env"
+                            }
+
+                            // Build the Go program
+                            sh "go build -o discord_bot_test"
+                        }
+                    }
+                }
+            }
+        }
+        stage('Test and Stage for Deployment') {
+            steps {
+                script {
+                    // Run the binary
+                    dir("${CUSTOM_WORKSPACE}/jenkins-discord-bot") {
+                        def output = sh(script: "./discord_bot_test &", returnStdout: true).trim()
+
+                        // Wait for the expected output for up to 30 seconds
+                        def timeout = 30
+                        def startTime = currentBuild.startTimeInMillis
+                        sh "touch bot.log"
+                        def waitForOutput = {
+                            while (true) {
+                                output = sh(script: "cat bot.log", returnStdout: true).trim()
+                                if (output.contains('Bot is connected to Discord')) {
+                                    return true
+                                } else {
+                                    sleep(5)
+                                }
+
+                                def elapsedTime = System.currentTimeMillis() - startTime
+                                if (elapsedTime > timeout * 10000) {
+                                    return false
+                                }
+                            }
+                        }()
+
+                        // Terminate the binary after 30 seconds
+                        sh "pkill -f discord_bot_test"
+
+                        // Check if the expected output was received
+                        if (!waitForOutput) {
+                            error "Expected output 'Bot is connected to Discord' not received within ${timeout} seconds"
+                        } else {
+                            sh "cp $CUSTOM_WORKSPACE/jenkins-discord-bot/discord_bot_test $CUSTOM_WORKSPACE/discord_bot"
+                            sh "cp $CUSTOM_WORKSPACE/jenkins-discord-bot/.env $CUSTOM_WORKSPACE"
+                        }
+                    }
+                }
+            }
+        }
+        stage('Release to changes to git') {
+            when {
+                expression { params.GIT_REPO == 'develop' }
+            }
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
+                        discordSend title: "Discord Bot", description: "Releasing new bot version to git", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
+                    }
+                    dir("${CUSTOM_WORKSPACE}/jenkins-discord-bot") {
+                        // Reset hard to origin/develop
+                        sh "git reset --hard origin/develop"
+
+                        // Merge develop into master
+                        sh "git checkout master"
+                        sh "git merge develop"
+
+                        // Push master to remote
+                        sh "git push origin master"
+
+                        // Merge master into develop locally
+                        sh "git checkout develop"
+                        sh "git merge master"
+
+                        // Push develop to remote
+                        sh "git push origin develop"
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            script {
+                withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
+                    discordSend title: "Discord Bot", description: "Releasing new discord bot version", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
+                }
+                sh "rm -rf $CUSTOM_WORKSPACE/jenkins-discord-bot*"
+                if (params.BRANCH in ['master', 'main', 'develop']) {
+                    build job: 'Discord Bot', parameters: [ string(name: 'BRANCH', value: 'master'),], wait: false
+                }
+            }
+        }
+        failure {
+            script {
+                withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
+                    discordSend title: "Discord Bot", description: "Rolling bot back to previous version", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
+                }
+                sh "rm -rf $CUSTOM_WORKSPACE/jenkins-discord-bot*"
+                if (params.BRANCH in ['master', 'main', 'develop']) {
+                    build job: 'Discord Bot', parameters: [ string(name: 'BRANCH', value: 'master'),], wait: false
+                }
+            }
+        }
+        always {
+            script {
+                sh 'pkill -f discord_bot'
+                sh "cat /dev/null > $CUSTOM_WORKSPACE/bot.log"
+            }
+        }
+    }
+}
