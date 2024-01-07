@@ -95,6 +95,14 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 			return
 		}
 		session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Jenkins Job List:\n%s", jobList))
+	case strings.HasPrefix(message.Content, "!runparams"):
+		// Handle !runparams command
+		err := bot.runPipelineWithParameters(message.Content)
+		if err != nil {
+			session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Error handling !runparams: %v", err))
+			return
+		}
+		session.ChannelMessageSend(message.ChannelID, "Pipeline triggered with parameters!")
 	case strings.HasPrefix(message.Content, "!run"):
 		// Extract the pipeline name from the message
 		parts := strings.Fields(message.Content)
@@ -159,14 +167,6 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 			return
 		}
 		session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Parameters from previous run:%s", parameters))
-	case strings.HasPrefix(message.Content, "!runparams"):
-		// Handle !runparams command
-		err := bot.runPipelineWithParameters(message.Content)
-		if err != nil {
-			session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Error handling !runparams: %v", err))
-			return
-		}
-		session.ChannelMessageSend(message.ChannelID, "Pipeline triggered with parameters!")
 	case strings.HasPrefix(message.Content, "!help"):
 		// Provide help information for each command
 		helpMsg := "Available Commands:\n" +
