@@ -86,8 +86,6 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
     }
 
     switch {
-	case strings.Contains(message.Content, "!pizza"):
-    	session.ChannelMessageSend(message.ChannelID, "soda")
 	case strings.Contains(message.Content, "!steak"):
     	session.ChannelMessageSend(message.ChannelID, "time")
 	case strings.Contains(message.Content, "!list"):
