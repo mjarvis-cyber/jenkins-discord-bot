@@ -690,12 +690,8 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 			parameters[currentParamKey] = append(parameters[currentParamKey], line)
 		}
 	}
-
-	// Now you have the pipelineName and parameters, you can trigger the Jenkins pipeline
-	// Use the Jenkins API to run the pipeline with the specified parameters
-
-	// Example: Trigger pipeline using bot's method (replace with your actual method)
-	err := bot.triggerJenkinsPipelineParams(pipelineName, parameters)
+    url := fmt.Sprintf("%s/job/%s/build", JenkinsURL, pipelineName)
+	err := bot.triggerJenkinsPipelineParams(url, parameters)
 	if err != nil {
 		return "", fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
 	}
