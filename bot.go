@@ -706,12 +706,14 @@ func (bot *Bot) triggerJenkinsPipelineParams(jobName string, parameters map[stri
         return err
     }
 
-    // Build the Jenkins job URL with parameters.
-    jenkinsURL := fmt.Sprintf("%s/job/%s/buildWithParameters?", JenkinsURL, jobName)
-
+    // Convert byte slice to string for better logging
     jsonString := string(jsonParams)
     Logger.Println("json Params: ", jsonString)
-    Logger.Println("url: ", jenkinsURL)
+
+    // Build the Jenkins job URL with parameters.
+    jenkinsURL := fmt.Sprintf("%s/job/%s/buildWithParameters?token=%s",
+        JenkinsURL, jobName, JenkinsToken)
+
     req, err := http.NewRequest("POST", jenkinsURL, bytes.NewBuffer(jsonParams))
     if err != nil {
         return err
@@ -728,12 +730,23 @@ func (bot *Bot) triggerJenkinsPipelineParams(jobName string, parameters map[stri
     }
     defer resp.Body.Close()
 
+    // Log the response status code
+    Logger.Printf("Jenkins API response status code: %s\n", resp.Status)
+
+    // Log the response body
+    responseBody, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return fmt.Errorf("error reading response body: %v", err)
+    }
+    Logger.Printf("Jenkins API response body: %s\n", responseBody)
+
     if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
         return fmt.Errorf("HTTP request failed with status: %s", resp.Status)
     }
 
     return nil
 }
+
 
 // prepareParameters prepares parameters in the expected format for Jenkins API.
 func prepareParameters(parameters map[string][]string) []map[string]interface{} {
