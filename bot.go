@@ -670,6 +670,9 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
     // Extract parameters from the remaining lines
     parameters := make(map[string]string)
 
+    var currentParamKey string
+    var paramValue strings.Builder
+
     for _, line := range lines[2:] {
         // Trim leading and trailing whitespaces
         line = strings.TrimSpace(line)
@@ -679,21 +682,22 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
             continue
         }
 
-        // Split the line into key and values
-        parts := strings.SplitN(line, " ", 2)
-        if len(parts) < 2 {
-            return "", fmt.Errorf("invalid parameter format")
+        // Check if the line is a parameter key
+        if currentParamKey == "" {
+            currentParamKey = line
+        } else {
+            // Add the line as part of the parameter value
+            paramValue.WriteString(line + "\n")
         }
 
-        key := parts[0]
-        value := parts[1]
+        // Check if the line is the last line of the parameter value
+        if strings.HasSuffix(line, "\"") || strings.HasSuffix(line, "'") {
+            // Store the parameter in the map
+            parameters[currentParamKey] = paramValue.String()
 
-        // Append the value to the existing values (if any)
-        existingValue, found := parameters[key]
-        if found {
-            parameters[key] = existingValue + " " + value
-        } else {
-            parameters[key] = value
+            // Reset currentParamKey and paramValue for the next parameter
+            currentParamKey = ""
+            paramValue.Reset()
         }
     }
 
@@ -704,6 +708,7 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 
     return pipelineName, nil
 }
+
 
 // triggerPipelineWithParameters triggers a Jenkins pipeline with the given parameters.
 func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson map[string]string) error {
