@@ -707,8 +707,14 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 
 // triggerPipelineWithParameters triggers a Jenkins pipeline with the given parameters.
 func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson map[string]string) error {
-    // Convert inputJson to a JSON string
-    jsonParams, err := json.Marshal(inputJson)
+    // Convert inputJson to an array of objects
+    var jsonArray []map[string]string
+    for key, value := range inputJson {
+        jsonArray = append(jsonArray, map[string]string{key: value})
+    }
+
+    // Convert the array to a JSON string
+    jsonParams, err := json.Marshal(jsonArray)
     if err != nil {
         return fmt.Errorf("error encoding JSON: %w", err)
     }
