@@ -1,7 +1,6 @@
 package main
 
 import (
-    "bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -698,7 +697,7 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
         }
     }
 
-    err := bot.triggerJenkinsPipelineParams(pipelineName, parameters)
+    err := bot.triggerJenkinsPipelineParams(pipelineName, string(parameters))
     if err != nil {
         return "", fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
     }
@@ -707,13 +706,10 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 }
 
 // triggerPipelineWithParameters triggers a Jenkins pipeline with the given parameters.
-func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson map[string]string) error {
-    if err != nil {
-        return err
-    }
+func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson string) error {
 
     // Convert byte slice to string for better logging
-    Logger.Println("json Params: ", string(parameters))
+    Logger.Println("json Params: ", string(inputJson))
 
     var parameters []map[string]string
     err := json.Unmarshal([]byte(inputJson), &parameters)
