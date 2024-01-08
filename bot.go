@@ -699,63 +699,47 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 }
 
 // triggerPipelineWithParameters triggers a Jenkins pipeline with the given parameters.
-func (bot *Bot) triggerJenkinsPipelineParams(jobName string, parameters map[string][]string) error {
-    // Prepare parameters in the expected format for Jenkins API.
-    jsonParams, err := json.Marshal(map[string]interface{}{"parameter": prepareParameters(parameters)})
-    if err != nil {
-        return err
+func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
+    // Split the message into lines
+    lines := strings.Split(message, "\n")
+
+    // Ensure the message has at least three lines (command, pipeline name, and parameters)
+    if len(lines) < 3 {
+        return "", fmt.Errorf("invalid message format")
     }
 
-    // Convert byte slice to string for better logging
-    jsonString := string(jsonParams)
-    Logger.Println("json Params: ", jsonString)
+    // Extract pipeline name from the second line
+    pipelineName := strings.TrimSpace(lines[1])
 
-    // Build the Jenkins job URL with parameters.
-    jenkinsURL := fmt.Sprintf("%s/job/%s/buildWithParameters?token=%s",
-        JenkinsURL, jobName, JenkinsToken)
+    // Extract parameters from the remaining lines
+    parameters := make(map[string][]string)
+    var currentParamKey string
 
-    req, err := http.NewRequest("POST", jenkinsURL, bytes.NewBuffer(jsonParams))
-    if err != nil {
-        return err
-    }
+    for _, line := range lines[2:] {
+        // Trim leading and trailing whitespaces
+        line = strings.TrimSpace(line)
 
-    // Set Jenkins authorization header and content type.
-    authHeader := fmt.Sprintf("Basic %s", base64.StdEncoding.EncodeToString([]byte("jenkins:"+JenkinsToken)))
-    req.Header.Set("Authorization", authHeader)
-    req.Header.Set("Content-Type", "application/json")
+        // Skip empty lines
+        if line == "" {
+            continue
+        }
 
-    resp, err := http.DefaultClient.Do(req)
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
-
-    // Log the response status code
-    Logger.Printf("Jenkins API response status code: %s\n", resp.Status)
-
-    // Log the response body
-    responseBody, err := io.ReadAll(resp.Body)
-    if err != nil {
-        return fmt.Errorf("error reading response body: %v", err)
-    }
-    Logger.Printf("Jenkins API response body: %s\n", responseBody)
-
-    if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-        return fmt.Errorf("HTTP request failed with status: %s", resp.Status)
-    }
-
-    return nil
-}
-
-
-// prepareParameters prepares parameters in the expected format for Jenkins API.
-func prepareParameters(parameters map[string][]string) []map[string]interface{} {
-    var result []map[string]interface{}
-
-    for key, values := range parameters {
-        for _, value := range values {
-            result = append(result, map[string]interface{}{"name": key, "value": value})
+        // Check if the line is a parameter key
+        if currentParamKey == "" {
+            // Set the current line as the parameter key
+            currentParamKey = line
+            parameters[currentParamKey] = nil
+        } else {
+            // Add the line as a parameter value
+            parameters[currentParamKey] = append(parameters[currentParamKey], line)
         }
     }
-    return result
+
+    err := bot.triggerJenkinsPipelineParams(pipelineName, parameters)
+    if err != nil {
+        return "", fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
+    }
+
+    return pipelineName, nil
 }
+
