@@ -176,7 +176,7 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 			"!proceed <pipeline_name> ----> Proceeds the current stage of a pipeline\n" +
 			"!abort <pipeline_name> -------> Aborts the current stage of a pipeline\n" +
 			"!parameters <pipeline_name> -> Fetches the parameters from the previous build\n\n" +
-            "!runparams\n<pipeline_name\n\nparameterKey\nparametervalue1\nparametervalue2\n\nparameterKey2\nparametervalue"
+            "!runparams\n<pipeline_name\n\nparameterKey parameterValue1\n\nparameterKey2 Parameter value 2"
 		session.ChannelMessageSend(message.ChannelID, helpMsg)
 	}
 
@@ -670,9 +670,6 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
     // Extract parameters from the remaining lines
     parameters := make(map[string]string)
 
-    var currentParamKey string
-    var paramValue strings.Builder
-
     for _, line := range lines[2:] {
         // Trim leading and trailing whitespaces
         line = strings.TrimSpace(line)
@@ -682,25 +679,21 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
             continue
         }
 
-        // Check if the line is a parameter key
-        if currentParamKey == "" {
-            currentParamKey = line
-        } else {
-            // Add the line as part of the parameter value
-            paramValue.WriteString(line)
+        // Split the line into key and values
+        parts := strings.SplitN(line, " ", 2)
+        if len(parts) < 2 {
+            return "", fmt.Errorf("invalid parameter format")
         }
 
-        // Check if the line is the last line of the parameter value
-        if strings.HasSuffix(line, "\"") || strings.HasSuffix(line, "'") {
-            // Store the parameter in the map
-            parameters[currentParamKey] = paramValue.String()
+        key := parts[0]
+        value := parts[1]
 
-            // Reset currentParamKey and paramValue for the next parameter
-            currentParamKey = ""
-            paramValue.Reset()
+        // Append the value to the existing values (if any)
+        existingValue, found := parameters[key]
+        if found {
+            parameters[key] = existingValue + " " + value
         } else {
-            // Add newline character to separate lines within a parameter value
-            paramValue.WriteString("\n")
+            parameters[key] = value
         }
     }
 
@@ -711,7 +704,6 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 
     return pipelineName, nil
 }
-
 
 // triggerPipelineWithParameters triggers a Jenkins pipeline with the given parameters.
 func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson map[string]string) error {
