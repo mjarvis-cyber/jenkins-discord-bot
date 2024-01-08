@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+    "net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -706,19 +707,16 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 }
 
 // triggerPipelineWithParameters triggers a Jenkins pipeline with the given parameters.
-func (bot *Bot) triggerJenkinsPipelineParams(jobName string, parameters map[string]string) error {
-    // Prepare parameters in the expected format for Jenkins API.
-    jsonParams, err := json.Marshal(map[string]interface{}{"parameter": prepareParameters(parameters)})
+func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson map[string]string) error {
     if err != nil {
         return err
     }
 
     // Convert byte slice to string for better logging
-    jsonString := string(jsonParams)
-    Logger.Println("json Params: ", jsonString)
+    Logger.Println("json Params: ", string(parameters))
 
     var parameters []map[string]string
-    err := json.Unmarshal([]byte(jsonParams), &parameters)
+    err := json.Unmarshal([]byte(inputJson), &parameters)
     if err != nil {
         return fmt.Errorf("error decoding JSON: %w", err)
     } 
@@ -729,7 +727,7 @@ func (bot *Bot) triggerJenkinsPipelineParams(jobName string, parameters map[stri
                     queryParams = append(queryParams, fmt.Sprintf("%s=%s", key, url.QueryEscape(value)))
             }
     }
-    finalURL := fmt.Sprintf("%s?%s", jenkinsURL, strings.Join(queryParams, "&"))
+    finalURL := fmt.Sprintf("%s?%s", JenkinsURL, strings.Join(queryParams, "&"))
 
     req, err := http.NewRequest("POST", finalURL, nil)
     if err != nil {
@@ -761,17 +759,4 @@ func (bot *Bot) triggerJenkinsPipelineParams(jobName string, parameters map[stri
     }
 
     return nil
-}
-
-
-// prepareParameters prepares parameters in the expected format for Jenkins API.
-func prepareParameters(parameters map[string][]string) []map[string]interface{} {
-    var result []map[string]interface{}
-
-    for key, values := range parameters {
-        for _, value := range values {
-            result = append(result, map[string]interface{}{"name": key, "value": value})
-        }
-    }
-    return result
 }
