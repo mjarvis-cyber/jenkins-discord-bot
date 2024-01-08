@@ -687,7 +687,7 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
             currentParamKey = line
         } else {
             // Add the line as part of the parameter value
-            paramValue.WriteString(line + "\n")
+            paramValue.WriteString(line)
         }
 
         // Check if the line is the last line of the parameter value
@@ -698,6 +698,9 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
             // Reset currentParamKey and paramValue for the next parameter
             currentParamKey = ""
             paramValue.Reset()
+        } else {
+            // Add newline character to separate lines within a parameter value
+            paramValue.WriteString("\n")
         }
     }
 
