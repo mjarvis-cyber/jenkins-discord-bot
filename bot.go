@@ -690,7 +690,7 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 			parameters[currentParamKey] = append(parameters[currentParamKey], line)
 		}
 	}
-	err := bot.triggerJenkinsPipelineParams(pipelineName, parameters)
+	err := bot.runPipelineWithParameters(pipelineName, parameters)
 	if err != nil {
 		return "", fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
 	}
