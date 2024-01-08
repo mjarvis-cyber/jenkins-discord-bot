@@ -668,8 +668,7 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
     pipelineName := strings.TrimSpace(lines[1])
 
     // Extract parameters from the remaining lines
-    parameters := make(map[string][]string)
-    var currentParamKey string
+    parameters := make(map[string]string)
 
     for _, line := range lines[2:] {
         // Trim leading and trailing whitespaces
@@ -680,21 +679,24 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
             continue
         }
 
-        // Check if the line is a parameter key
-        if currentParamKey == "" {
-            // Set the current line as the parameter key
-            currentParamKey = line
-            parameters[currentParamKey] = nil
+        // Split the line into key and values
+        parts := strings.SplitN(line, " ", 2)
+        if len(parts) < 2 {
+            return "", fmt.Errorf("invalid parameter format")
+        }
+
+        key := parts[0]
+        value := parts[1]
+
+        // Append the value to the existing values (if any)
+        existingValue, found := parameters[key]
+        if found {
+            parameters[key] = existingValue + " " + value
         } else {
-            // Add the line as a parameter value
-            parameters[currentParamKey] = append(parameters[currentParamKey], line)
+            parameters[key] = value
         }
     }
 
-    // Now you have the pipelineName and parameters, you can trigger the Jenkins pipeline
-    // Use the Jenkins API to run the pipeline with the specified parameters
-
-    // Example: Trigger pipeline using bot's method (replace with your actual method)
     err := bot.triggerJenkinsPipelineParams(pipelineName, parameters)
     if err != nil {
         return "", fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
@@ -704,7 +706,7 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 }
 
 // triggerPipelineWithParameters triggers a Jenkins pipeline with the given parameters.
-func (bot *Bot) triggerJenkinsPipelineParams(jobName string, parameters map[string][]string) error {
+func (bot *Bot) triggerJenkinsPipelineParams(jobName string, parameters map[string]string) error {
     // Prepare parameters in the expected format for Jenkins API.
     jsonParams, err := json.Marshal(map[string]interface{}{"parameter": prepareParameters(parameters)})
     if err != nil {
@@ -715,11 +717,21 @@ func (bot *Bot) triggerJenkinsPipelineParams(jobName string, parameters map[stri
     jsonString := string(jsonParams)
     Logger.Println("json Params: ", jsonString)
 
-    // Build the Jenkins job URL with parameters.
-    jenkinsURL := fmt.Sprintf("%s/job/%s/buildWithParameters?token=%s",
-        JenkinsURL, jobName, JenkinsToken)
+    var parameters []map[string]string
+    err := json.Unmarshal([]byte(jsonParams), &parameters)
+    if err != nil {
+        return fmt.Errorf("error decoding JSON: %w", err)
+    } 
 
-    req, err := http.NewRequest("POST", jenkinsURL, bytes.NewBuffer(jsonParams))
+    var queryParams []string
+    for _, param := range parameters {
+            for key, value := range param {
+                    queryParams = append(queryParams, fmt.Sprintf("%s=%s", key, url.QueryEscape(value)))
+            }
+    }
+    finalURL := fmt.Sprintf("%s?%s", jenkinsURL, strings.Join(queryParams, "&"))
+
+    req, err := http.NewRequest("POST", finalURL, nil)
     if err != nil {
         return err
     }
@@ -727,7 +739,6 @@ func (bot *Bot) triggerJenkinsPipelineParams(jobName string, parameters map[stri
     // Set Jenkins authorization header and content type.
     authHeader := fmt.Sprintf("Basic %s", base64.StdEncoding.EncodeToString([]byte("jenkins:"+JenkinsToken)))
     req.Header.Set("Authorization", authHeader)
-    req.Header.Set("Content-Type", "application/json")
 
     resp, err := http.DefaultClient.Do(req)
     if err != nil {
