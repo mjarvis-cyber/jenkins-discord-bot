@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+    "net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -95,6 +96,14 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 			return
 		}
 		session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Jenkins Job List:\n%s", jobList))
+	case strings.HasPrefix(message.Content, "!runparams"):
+		// Handle !runparams command
+		pipelineName, err := bot.runPipelineWithParameters(message.Content)
+		if err != nil {
+			session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Error handling !runparams: %v", err))
+			return
+		}
+		session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Jenkins pipeline '%s' triggered successfully!", pipelineName))
 	case strings.HasPrefix(message.Content, "!run"):
 		// Extract the pipeline name from the message
 		parts := strings.Fields(message.Content)
@@ -166,7 +175,8 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 			"!run <pipeline_name> ---------> Triggers a Jenkins pipeline with the specified name\n" +
 			"!proceed <pipeline_name> ----> Proceeds the current stage of a pipeline\n" +
 			"!abort <pipeline_name> -------> Aborts the current stage of a pipeline\n" +
-			"!parameters <pipeline_name> -> Fetches the parameters from the previous build"
+			"!parameters <pipeline_name> -> Fetches the parameters from the previous build\n\n" +
+            "!runparams\n<pipeline_name\n\nparameterKey parameterValue1\n\nparameterKey2 Parameter value 2"
 		session.ChannelMessageSend(message.ChannelID, helpMsg)
 	}
 
@@ -643,4 +653,120 @@ func (bot *Bot) fetchJenkinsJobParameters(pipelineName string) (string, error) {
 
     // If the build with the matching runNumber is not found
     return "", fmt.Errorf("build with runNumber %d not found", runNumber)
+}
+
+func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
+    // Split the message into lines
+    lines := strings.Split(message, "\n")
+
+    // Ensure the message has at least three lines (command, pipeline name, and parameters)
+    if len(lines) < 3 {
+        return "", fmt.Errorf("invalid message format")
+    }
+
+    // Extract pipeline name from the second line
+    pipelineName := strings.TrimSpace(lines[1])
+
+    // Extract parameters from the remaining lines
+    parameters := make(map[string]string)
+
+    for _, line := range lines[2:] {
+        // Trim leading and trailing whitespaces
+        line = strings.TrimSpace(line)
+
+        // Skip empty lines
+        if line == "" {
+            continue
+        }
+
+        // Split the line into key and values
+        parts := strings.SplitN(line, " ", 2)
+        if len(parts) < 2 {
+            return "", fmt.Errorf("invalid parameter format")
+        }
+
+        key := parts[0]
+        value := parts[1]
+
+        // Append the value to the existing values (if any)
+        existingValue, found := parameters[key]
+        if found {
+            parameters[key] = existingValue + " " + value
+        } else {
+            parameters[key] = value
+        }
+    }
+
+    err := bot.triggerJenkinsPipelineParams(pipelineName, parameters)
+    if err != nil {
+        return "", fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
+    }
+
+    return pipelineName, nil
+}
+
+// triggerPipelineWithParameters triggers a Jenkins pipeline with the given parameters.
+func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson map[string]string) error {
+    // Convert inputJson to an array of objects
+    var jsonArray []map[string]string
+    for key, value := range inputJson {
+        jsonArray = append(jsonArray, map[string]string{key: value})
+    }
+
+    // Convert the array to a JSON string
+    jsonParams, err := json.Marshal(jsonArray)
+    if err != nil {
+        return fmt.Errorf("error encoding JSON: %w", err)
+    }
+
+    // Convert byte slice to string for better logging
+    Logger.Println("json Params: ", string(jsonParams))
+
+    var parameters []map[string]string
+    err = json.Unmarshal(jsonParams, &parameters)
+    if err != nil {
+        return fmt.Errorf("error decoding JSON: %w", err)
+    }
+
+    var queryParams []string
+    for _, param := range parameters {
+        for key, value := range param {
+            queryParams = append(queryParams, fmt.Sprintf("%s=%s", key, url.QueryEscape(value)))
+        }
+    }
+
+    finalURL := fmt.Sprintf("%s/job/%s/buildWithParameters?%s", JenkinsURL, jobName, strings.Join(queryParams, "&"))
+
+    Logger.Println("Final URL: ", finalURL)
+
+    req, err := http.NewRequest("POST", finalURL, nil)
+    if err != nil {
+        return err
+    }
+
+    // Set Jenkins authorization header and content type.
+    authHeader := fmt.Sprintf("Basic %s", base64.StdEncoding.EncodeToString([]byte("jenkins:"+JenkinsToken)))
+    req.Header.Set("Authorization", authHeader)
+
+    resp, err := http.DefaultClient.Do(req)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    // Log the response status code
+    Logger.Printf("Jenkins API response status code: %s\n", resp.Status)
+
+    // Log the response body
+    responseBody, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return fmt.Errorf("error reading response body: %v", err)
+    }
+    Logger.Printf("Jenkins API response body: %s\n", responseBody)
+
+    if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+        return fmt.Errorf("HTTP request failed with status: %s", resp.Status)
+    }
+
+    return nil
 }

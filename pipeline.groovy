@@ -50,8 +50,6 @@ pipeline {
                     dir("${CUSTOM_WORKSPACE}") {
                         // Run the binary using 'script' to create a pseudo-terminal
                         sh "script -q -c './discord_bot' /dev/null &"
-                        sh "rm -f $CUSTOM_WORKSPACE/.env"
-
                     }
                 }
             }
@@ -105,12 +103,12 @@ pipeline {
                 script {
                     // Run the binary
                     dir("${CUSTOM_WORKSPACE}/jenkins-discord-bot") {
+                        sh "touch bot.log"
                         def output = sh(script: "./discord_bot_test &", returnStdout: true).trim()
 
                         // Wait for the expected output for up to 30 seconds
                         def timeout = 30
                         def startTime = currentBuild.startTimeInMillis
-                        sh "touch bot.log"
                         def waitForOutput = {
                             while (true) {
                                 output = sh(script: "cat bot.log", returnStdout: true).trim()
@@ -134,8 +132,7 @@ pipeline {
                         if (!waitForOutput) {
                             error "Expected output 'Bot is connected to Discord' not received within ${timeout} seconds"
                         } else {
-                            sh 'pkill -f discord_bot'
-                            sh "cp $CUSTOM_WORKSPACE/jenkins-discord-bot/discord_bot_test $CUSTOM_WORKSPACE/discord_bot"
+                            sh "cp $CUSTOM_WORKSPACE/jenkins-discord-bot/discord_bot_test $CUSTOM_WORKSPACE/discord_bot_tmp"
                             sh "cp $CUSTOM_WORKSPACE/jenkins-discord-bot/.env $CUSTOM_WORKSPACE"
                         }
                     }
@@ -183,6 +180,7 @@ pipeline {
                 if (params.BRANCH in ['master', 'main', 'develop']) {
                     build job: 'Discord Bot', parameters: [ string(name: 'BRANCH', value: 'master'),], wait: false
                 }
+                sh "cp $CUSTOM_WORKSPACE/discord_bot_tmp $CUSTOM_WORKSPACE/discord_bot"
             }
         }
         failure {
