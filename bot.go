@@ -737,6 +737,8 @@ func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson map[strin
 
     finalURL := fmt.Sprintf("%s?%s", JenkinsURL, strings.Join(queryParams, "&"))
 
+    Logger.Println("Final URL: ", finalURL)
+
     req, err := http.NewRequest("POST", finalURL, nil)
     if err != nil {
         return err
