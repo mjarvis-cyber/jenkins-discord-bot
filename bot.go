@@ -697,7 +697,7 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
         }
     }
 
-    err := bot.triggerJenkinsPipelineParams(pipelineName, string(parameters))
+    err := bot.triggerJenkinsPipelineParams(pipelineName, parameters)
     if err != nil {
         return "", fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
     }
@@ -706,23 +706,29 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
 }
 
 // triggerPipelineWithParameters triggers a Jenkins pipeline with the given parameters.
-func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson string) error {
+func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson map[string]string) error {
+    // Convert inputJson to a JSON string
+    jsonParams, err := json.Marshal(inputJson)
+    if err != nil {
+        return fmt.Errorf("error encoding JSON: %w", err)
+    }
 
     // Convert byte slice to string for better logging
-    Logger.Println("json Params: ", string(inputJson))
+    Logger.Println("json Params: ", string(jsonParams))
 
     var parameters []map[string]string
-    err := json.Unmarshal([]byte(inputJson), &parameters)
+    err = json.Unmarshal(jsonParams, &parameters)
     if err != nil {
         return fmt.Errorf("error decoding JSON: %w", err)
-    } 
+    }
 
     var queryParams []string
     for _, param := range parameters {
-            for key, value := range param {
-                    queryParams = append(queryParams, fmt.Sprintf("%s=%s", key, url.QueryEscape(value)))
-            }
+        for key, value := range param {
+            queryParams = append(queryParams, fmt.Sprintf("%s=%s", key, url.QueryEscape(value)))
+        }
     }
+
     finalURL := fmt.Sprintf("%s?%s", JenkinsURL, strings.Join(queryParams, "&"))
 
     req, err := http.NewRequest("POST", finalURL, nil)
