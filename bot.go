@@ -656,50 +656,6 @@ func (bot *Bot) fetchJenkinsJobParameters(pipelineName string) (string, error) {
 }
 
 func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
-	// Split the message into lines
-	lines := strings.Split(message, "\n")
-
-	// Ensure the message has at least three lines (command, pipeline name, and parameters)
-	if len(lines) < 3 {
-		return "", fmt.Errorf("invalid message format")
-	}
-
-	// Extract pipeline name from the second line
-	pipelineName := strings.TrimSpace(lines[1])
-
-	// Extract parameters from the remaining lines
-	parameters := make(map[string][]string)
-	var currentParamKey string
-
-	for _, line := range lines[2:] {
-		// Trim leading and trailing whitespaces
-		line = strings.TrimSpace(line)
-
-		// Skip empty lines
-		if line == "" {
-			continue
-		}
-
-		// Check if the line is a parameter key
-		if currentParamKey == "" {
-			// Set the current line as the parameter key
-			currentParamKey = line
-			parameters[currentParamKey] = nil
-		} else {
-			// Add the line as a parameter value
-			parameters[currentParamKey] = append(parameters[currentParamKey], line)
-		}
-	}
-	err := bot.runPipelineWithParameters(pipelineName, parameters)
-	if err != nil {
-		return "", fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
-	}
-
-	return pipelineName, nil
-}
-
-// triggerPipelineWithParameters triggers a Jenkins pipeline with the given parameters.
-func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
     // Split the message into lines
     lines := strings.Split(message, "\n")
 
@@ -735,6 +691,10 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
         }
     }
 
+    // Now you have the pipelineName and parameters, you can trigger the Jenkins pipeline
+    // Use the Jenkins API to run the pipeline with the specified parameters
+
+    // Example: Trigger pipeline using bot's method (replace with your actual method)
     err := bot.triggerJenkinsPipelineParams(pipelineName, parameters)
     if err != nil {
         return "", fmt.Errorf("failed to trigger Jenkins pipeline: %v", err)
@@ -743,3 +703,64 @@ func (bot *Bot) runPipelineWithParameters(message string) (string, error) {
     return pipelineName, nil
 }
 
+// triggerPipelineWithParameters triggers a Jenkins pipeline with the given parameters.
+func (bot *Bot) triggerJenkinsPipelineParams(jobName string, parameters map[string][]string) error {
+    // Prepare parameters in the expected format for Jenkins API.
+    jsonParams, err := json.Marshal(map[string]interface{}{"parameter": prepareParameters(parameters)})
+    if err != nil {
+        return err
+    }
+
+    // Convert byte slice to string for better logging
+    jsonString := string(jsonParams)
+    Logger.Println("json Params: ", jsonString)
+
+    // Build the Jenkins job URL with parameters.
+    jenkinsURL := fmt.Sprintf("%s/job/%s/buildWithParameters?token=%s",
+        JenkinsURL, jobName, JenkinsToken)
+
+    req, err := http.NewRequest("POST", jenkinsURL, bytes.NewBuffer(jsonParams))
+    if err != nil {
+        return err
+    }
+
+    // Set Jenkins authorization header and content type.
+    authHeader := fmt.Sprintf("Basic %s", base64.StdEncoding.EncodeToString([]byte("jenkins:"+JenkinsToken)))
+    req.Header.Set("Authorization", authHeader)
+    req.Header.Set("Content-Type", "application/json")
+
+    resp, err := http.DefaultClient.Do(req)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    // Log the response status code
+    Logger.Printf("Jenkins API response status code: %s\n", resp.Status)
+
+    // Log the response body
+    responseBody, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return fmt.Errorf("error reading response body: %v", err)
+    }
+    Logger.Printf("Jenkins API response body: %s\n", responseBody)
+
+    if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+        return fmt.Errorf("HTTP request failed with status: %s", resp.Status)
+    }
+
+    return nil
+}
+
+
+// prepareParameters prepares parameters in the expected format for Jenkins API.
+func prepareParameters(parameters map[string][]string) []map[string]interface{} {
+    var result []map[string]interface{}
+
+    for key, values := range parameters {
+        for _, value := range values {
+            result = append(result, map[string]interface{}{"name": key, "value": value})
+        }
+    }
+    return result
+}
