@@ -735,7 +735,7 @@ func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson map[strin
         }
     }
 
-    finalURL := fmt.Sprintf("%s?%s", JenkinsURL, strings.Join(queryParams, "&"))
+    finalURL := fmt.Sprintf("%s/job/%s/buildWithParameters?%s", JenkinsURL, jobName, strings.Join(queryParams, "&"))
 
     Logger.Println("Final URL: ", finalURL)
 
