@@ -308,7 +308,7 @@ func (bot *Bot) fetchJenkinsJobStatus(jobName string) (string, error) {
     // Check if the job is in progress
     inProgress, ok := data["inProgress"].(bool)
     if ok && inProgress {
-        return ":jenkinsrunning:", nil
+        return "<a:jenkinsrunning:1194478025975279687>", nil
     }
 
     // If not in progress, return the result
@@ -320,9 +320,9 @@ func (bot *Bot) fetchJenkinsJobStatus(jobName string) (string, error) {
     // Map Jenkins statuses to Discord emojis
     switch status {
     case "SUCCESS":
-        return ":jenkinsgreencheck:", nil
+        return "<:jenkinsgreencheck:1192251531811094588>", nil
     case "FAILURE":
-        return ":jenkinsfail:", nil
+        return "<:jenkinsfail:1192276960399851641>", nil
     default:
         return "unknown", nil
     }
