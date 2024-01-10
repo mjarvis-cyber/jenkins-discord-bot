@@ -203,7 +203,7 @@ func (bot *Bot) getJenkinsJobList() (string, error) {
         }
 
         // Append formatted job information to the result
-        result.WriteString(fmt.Sprintf("**%s**\nLast Status: %s\n\n", job, jobStatus))
+        result.WriteString(fmt.Sprintf("%s **%s**\n", jobStatus, job))
     }
 
     return result.String(), nil
@@ -308,7 +308,7 @@ func (bot *Bot) fetchJenkinsJobStatus(jobName string) (string, error) {
     // Check if the job is in progress
     inProgress, ok := data["inProgress"].(bool)
     if ok && inProgress {
-        return "RUNNING", nil
+        return ":jenkinsrunning:", nil
     }
 
     // If not in progress, return the result
@@ -317,8 +317,17 @@ func (bot *Bot) fetchJenkinsJobStatus(jobName string) (string, error) {
         return "unknown", nil
     }
 
-    return status, nil
+    // Map Jenkins statuses to Discord emojis
+    switch status {
+    case "SUCCESS":
+        return ":jenkinsgreencheck:", nil
+    case "FAILURE":
+        return ":jenkinsfail:", nil
+    default:
+        return "unknown", nil
+    }
 }
+
 
 
 // fetchJenkinsJobRunNumber retrieves the ID of a specific Jenkins job.
