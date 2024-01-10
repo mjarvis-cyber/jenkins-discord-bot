@@ -50,9 +50,6 @@ pipeline {
                     dir("${CUSTOM_WORKSPACE}") {
                         // Run the binary using 'script' to create a pseudo-terminal
                         sh "script -q -c './discord_bot' /dev/null &"
-                        sleep 1
-                        sh "rm -f $CUSTOM_WORKSPACE/.env"
-
                     }
                 }
             }
