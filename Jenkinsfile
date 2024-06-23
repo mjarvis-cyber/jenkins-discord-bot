@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'controller'
+        label 'master'
     }
     environment {
         CUSTOM_WORKSPACE = "$JENKINS_HOME/workspace/discord_bot"
