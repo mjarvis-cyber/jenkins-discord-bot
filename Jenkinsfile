@@ -7,7 +7,7 @@ pipeline {
     }
     parameters {
         string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:OrangeSquirter/jenkins-discord-bot.git')
-        string( name: 'BRANCH', description: 'Select the branch you wish to run', defaultValue: 'master')
+        string(name: 'BRANCH', description: 'Select the branch you wish to run', defaultValue: 'master')
     }
 
     stages {
@@ -35,10 +35,12 @@ pipeline {
             }
         }
         stage('Build new version') {
-            // environment {
-            //    HTTP_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
-            //    HTTPS_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
-            //}
+            agent {
+                docker {
+                    image 'golang:latest'
+                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE'
+                }
+            }
             steps {
                 script {
                     dir("${CUSTOM_WORKSPACE}") {
@@ -65,6 +67,12 @@ pipeline {
             }
         }
         stage('Test and Stage for Deployment') {
+            agent {
+                docker {
+                    image 'golang:latest'
+                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE'
+                }
+            }
             steps {
                 script {
                     // Run the binary
@@ -85,7 +93,7 @@ pipeline {
                                 }
 
                                 def elapsedTime = System.currentTimeMillis() - startTime
-                                if (elapsedTime > timeout * 10000) {
+                                if (elapsedTime > timeout * 1000) {
                                     return false
                                 }
                             }
