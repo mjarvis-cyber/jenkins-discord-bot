@@ -1,8 +1,7 @@
 pipeline {
     agent {
-        docker {
+        dockerfile {
             filename 'Dockerfile'
-            args '-v /tmp:/tmp'
         }
     }
     environment {
