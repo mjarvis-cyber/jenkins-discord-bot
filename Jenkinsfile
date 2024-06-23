@@ -1,13 +1,50 @@
 pipeline {
     agent {
-        label 'master'
+        docker {
+            filename 'Dockerfile'
+            args '-v /tmp:/tmp'
+        }
     }
     environment {
         CUSTOM_WORKSPACE = "$JENKINS_HOME/workspace/discord_bot"
+        SSH_KEY = credentials('ssh-key')
     }
     parameters {
         string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:OrangeSquirter/jenkins-discord-bot.git')
-        string(name: 'BRANCH', description: 'Select the branch you wish to run', defaultValue: 'master')
+        reactiveChoice(
+            name: 'BRANCH',
+            description: 'Select the branch you wish to run',
+            choiceType: 'PT_SINGLE_SELECT',
+            script: [
+                $class: 'GroovyScript',
+                fallbackScript: [
+                    classpath: [],
+                    sandbox: false,
+                    script: 'return []'
+                ],
+                script: [
+                    classpath: [],
+                    sandbox: false,
+                    script: '''
+                    def command = "git ls-remote --heads ${GIT_REPO}"
+                    def proc = command.execute()
+                    proc.waitFor()
+
+                    if (proc.exitValue() != 0) {
+                        println 'Failed to fetch branches'
+                        return []
+                    }
+
+                    def output = proc.in.text
+                    def branches = output.readLines().collect {
+                        it.replaceAll(/.*refs\\/heads\\//, '').trim()
+                    }
+                    return branches.reverse()
+                    '''
+                ]
+            ],
+            referencedParameters: 'GIT_REPO'
+        )
     }
 
     stages {
@@ -15,7 +52,6 @@ pipeline {
             steps {
                 script {
                     dir("${CUSTOM_WORKSPACE}") {
-                        // Run the binary using 'script' to create a pseudo-terminal
                         sh "script -q -c './discord_bot' /dev/null &"
                     }
                 }
@@ -35,12 +71,12 @@ pipeline {
             }
         }
         stage('Build new version') {
-            agent {
-                docker {
-                    image 'golang:latest'
-                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE --entrypoint /bin/sh'
-                }
+            /*
+            environment {
+                HTTP_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
+                HTTPS_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
             }
+            */
             steps {
                 script {
                     sh "tail -f /dev/null &"
