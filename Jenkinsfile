@@ -106,6 +106,7 @@ pipeline {
                 }
             }
         }
+    }
     post {
         success {
             script {
