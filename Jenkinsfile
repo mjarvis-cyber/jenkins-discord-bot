@@ -1,9 +1,13 @@
 pipeline {
     agent {
-        label 'master'
+        docker {
+            filename 'Dockerfile'
+            args '-v /tmp:/tmp'
+        }
     }
     environment {
         CUSTOM_WORKSPACE = "$JENKINS_HOME/workspace/discord_bot"
+        SSH_KEY = credentials('ssh-key')
     }
     parameters {
         string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:OrangeSquirter/jenkins-discord-bot.git')
@@ -25,7 +29,7 @@ pipeline {
                     def command = "git ls-remote --heads ${GIT_REPO}"
                     def proc = command.execute()
                     proc.waitFor()
-                    
+
                     if (proc.exitValue() != 0) {
                         println 'Failed to fetch branches'
                         return []
@@ -48,7 +52,6 @@ pipeline {
             steps {
                 script {
                     dir("${CUSTOM_WORKSPACE}") {
-                        // Run the binary using 'script' to create a pseudo-terminal
                         sh "script -q -c './discord_bot' /dev/null &"
                     }
                 }
@@ -68,10 +71,12 @@ pipeline {
             }
         }
         stage('Build new version') {
+            /*
             environment {
                 HTTP_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
                 HTTPS_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
             }
+            */
             steps {
                 script {
                     dir("${CUSTOM_WORKSPACE}") {
