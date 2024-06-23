@@ -200,7 +200,7 @@ func (bot *Bot) getJenkinsJobList() (string, error) {
         jobStatus, err := bot.fetchJenkinsJobStatus(jobName)
 		Logger.Println("Job Name: ", jobName, "Job Status: ", jobStatus)
         if err != nil {
-            return "", err
+            Logger.Println("Got some error when getting a job status: ", err)
         }
 
         // Append formatted job information to the result
@@ -290,7 +290,7 @@ func (bot *Bot) fetchJenkinsJobStatus(jobName string) (string, error) {
     defer resp.Body.Close()
 
     if resp.StatusCode != http.StatusOK {
-        return "", fmt.Errorf("HTTP request failed with status: %s", resp.Status)
+        return "<:jenkinsnotrun:1254459002167885988>", fmt.Printf("HTTP request failed with status: %s", resp.Status)
     }
 
     // Read the response body
