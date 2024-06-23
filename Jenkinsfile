@@ -38,7 +38,7 @@ pipeline {
             agent {
                 docker {
                     image 'golang:latest'
-                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE tail -f /dev/null'
+                    args '--entrypoint tail -f /dev/null -v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE'
                 }
             }
             steps {
@@ -70,7 +70,7 @@ pipeline {
             agent {
                 docker {
                     image 'golang:latest'
-                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE tail -f /dev/null'
+                    args '--entrypoint tail -f /dev/null -v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE'
                 }
             }
             steps {
