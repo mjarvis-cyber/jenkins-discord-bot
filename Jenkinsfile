@@ -49,7 +49,9 @@ pipeline {
                     sh "tail -f /dev/null &"
                     dir("${CUSTOM_WORKSPACE}") {
                         sh "rm -rf jenkins-discord-bot*"
-                        sh "git clone ${params.GIT_REPO} --branch ${params.BRANCH}"
+                        sh """
+                        GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no' git clone ${params.GIT_REPO} --branch ${params.BRANCH}
+                        """
                         dir("jenkins-discord-bot") {
                             sh "pwd"
                             sh "ls -lah"
@@ -85,7 +87,6 @@ pipeline {
                 script {
                     sh "cp ${CUSTOM_WORKSPACE}/id_rsa /root/.ssh/id_rsa"
                     sh "chmod 600 /root/.ssh/id_rsa"
-                    sh "ssh-keyscan github.com >> /root/.ssh/known_hosts"
 
                     // Run the binary
                     dir("${CUSTOM_WORKSPACE}/jenkins-discord-bot") {
