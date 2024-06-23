@@ -39,6 +39,7 @@ pipeline {
                 docker {
                     image 'golang:latest'
                     args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE'
+                    customCommand '/bin/sh -c "tail -f /dev/null"'
                 }
             }
             steps {
@@ -66,12 +67,13 @@ pipeline {
                 }
             }
         }
-        /*
         stage('Test and Stage for Deployment') {
             agent {
                 docker {
                     image 'golang:latest'
                     args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE'
+                    // Override the default command to keep the container running
+                    customCommand '/bin/sh -c "tail -f /dev/null"'
                 }
             }
             steps {
@@ -114,7 +116,6 @@ pipeline {
                 }
             }
         }
-        */
     }
     post {
         success {
@@ -147,7 +148,7 @@ pipeline {
                 } catch (Exception e) {
                     echo "Failed to kill discord_bot process: ${e.getMessage()}"
                 }
-                // sh "cat /dev/null > $CUSTOM_WORKSPACE/bot.log"
+                sh "cat /dev/null > $CUSTOM_WORKSPACE/bot.log"
             }
         }
     }
