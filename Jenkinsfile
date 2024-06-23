@@ -79,9 +79,9 @@ pipeline {
             */
             steps {
                 script {
+                    sh "tail -f /dev/null &"
                     dir("${CUSTOM_WORKSPACE}") {
                         sh "rm -rf jenkins-discord-bot*"
-                        sh "git clone ${params.GIT_REPO} --branch ${params.BRANCH}"
                         dir("jenkins-discord-bot") {
                             sh "go mod init bot"
                             sh "go get github.com/bwmarrin/discordgo"
@@ -104,6 +104,12 @@ pipeline {
             }
         }
         stage('Test and Stage for Deployment') {
+            agent {
+                docker {
+                    image 'golang:latest'
+                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE --entrypoint /bin/sh'
+                }
+            }
             steps {
                 script {
                     // Run the binary
@@ -124,7 +130,7 @@ pipeline {
                                 }
 
                                 def elapsedTime = System.currentTimeMillis() - startTime
-                                if (elapsedTime > timeout * 10000) {
+                                if (elapsedTime > timeout * 1000) {
                                     return false
                                 }
                             }
@@ -140,36 +146,6 @@ pipeline {
                             sh "cp $CUSTOM_WORKSPACE/jenkins-discord-bot/discord_bot_test $CUSTOM_WORKSPACE/discord_bot_tmp"
                             sh "cp $CUSTOM_WORKSPACE/jenkins-discord-bot/.env $CUSTOM_WORKSPACE"
                         }
-                    }
-                }
-            }
-        }
-        stage('Release to changes to git') {
-            when {
-                expression { params.BRANCH == 'develop' }
-            }
-            steps {
-                script {
-                    withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
-                        discordSend title: "Discord Bot", description: "Releasing new bot version to git", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
-                    }
-                    dir("${CUSTOM_WORKSPACE}/jenkins-discord-bot") {
-                        // Reset hard to origin/develop
-                        sh "git reset --hard origin/develop"
-
-                        // Merge develop into master
-                        sh "git checkout master"
-                        sh "git merge develop"
-
-                        // Push master to remote
-                        sh "git push origin master"
-
-                        // Merge master into develop locally
-                        sh "git checkout develop"
-                        sh "git merge master"
-
-                        // Push develop to remote
-                        sh "git push origin develop"
                     }
                 }
             }
@@ -201,7 +177,11 @@ pipeline {
         }
         always {
             script {
-                sh 'pkill -f discord_bot'
+                try {
+                    sh 'pkill -f discord_bot'
+                } catch (Exception e) {
+                    echo "Failed to kill discord_bot process: ${e.getMessage()}"
+                }
                 sh "cat /dev/null > $CUSTOM_WORKSPACE/bot.log"
             }
         }
