@@ -315,7 +315,7 @@ func (bot *Bot) fetchJenkinsJobStatus(jobName string) (string, error) {
     // If not in progress, return the result
     status, ok := data["result"].(string)
     if !ok {
-        return "unknown", nil
+        return "<:jenkinsnotrun:1254459002167885988>", nil
     }
 
     // Map Jenkins statuses to Discord emojis
@@ -325,7 +325,7 @@ func (bot *Bot) fetchJenkinsJobStatus(jobName string) (string, error) {
     case "FAILURE":
         return "<:jenkinsfail:1192276960399851641>", nil
     default:
-        return "unknown", nil
+        return "<:jenkinsnotrun:1254459002167885988>", nil
     }
 }
 
