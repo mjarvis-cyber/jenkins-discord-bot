@@ -22,28 +22,7 @@ pipeline {
                 }
             }
         }
-        stage('Run Discord Bot') {
-            steps {
-                script {
-                    dir("${CUSTOM_WORKSPACE}") {
-                        sh "script -q -c './discord_bot' /dev/null &"
-                    }
-                }
-            }
-        }
-        stage('Wait for Proceed') {
-            steps {
-                script {
-                    dir("${CUSTOM_WORKSPACE}") {
-                        withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
-                            discordSend title: "Discord Bot", description: "Click 'Proceed' to build new discord bot version", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
-                        }
-                        input message: 'Press "Proceed" to build new bot', submitter: 'user'
-                    }
-                }
-            }
-        }
-        stage('Build new version') {
+        stage('Build discord bot') {
             steps {
                 script {
                     sh "tail -f /dev/null &"
@@ -70,58 +49,26 @@ pipeline {
                             }
 
                             // Build the Go program
-                            sh "go build -o discord_bot_test"
+                            sh "go build -o discord_bot"
                         }
                     }
                 }
             }
         }
-        stage('Test and Stage for Deployment') {
-            agent {
-                docker {
-                    image 'golang:latest'
-                    args "-v ${CUSTOM_WORKSPACE}:${CUSTOM_WORKSPACE} --entrypoint /bin/sh"
-                }
-            }
+        stage('Deploy bot') {
             steps {
                 script {
-                    sh "cp ${CUSTOM_WORKSPACE}/id_rsa /root/.ssh/id_rsa"
-                    sh "chmod 600 /root/.ssh/id_rsa"
-
                     // Run the binary
                     dir("${CUSTOM_WORKSPACE}/jenkins-discord-bot") {
                         sh "touch bot.log"
-                        def output = sh(script: "./discord_bot_test &", returnStdout: true).trim()
+                        def output = sh(script: "./discord_bot &", returnStdout: true).trim()
 
-                        // Wait for the expected output for up to 30 seconds
-                        def timeout = 30
-                        def startTime = currentBuild.startTimeInMillis
-                        def waitForOutput = {
-                            while (true) {
-                                output = sh(script: "cat bot.log", returnStdout: true).trim()
-                                if (output.contains('Bot is connected to Discord')) {
-                                    return true
-                                } else {
-                                    sleep(5)
-                                }
-
-                                def elapsedTime = System.currentTimeMillis() - startTime
-                                if (elapsedTime > timeout * 1000) {
-                                    return false
-                                }
-                            }
-                        }()
+                        // Build the bot daily
+                        sleep(time:1, unit:'DAYS')
+                        
 
                         // Terminate the binary after 30 seconds
-                        sh "pkill -f discord_bot_test"
-
-                        // Check if the expected output was received
-                        if (!waitForOutput) {
-                            error "Expected output 'Bot is connected to Discord' not received within ${timeout} seconds"
-                        } else {
-                            sh "cp ${CUSTOM_WORKSPACE}/jenkins-discord-bot/discord_bot_test ${CUSTOM_WORKSPACE}/discord_bot_tmp"
-                            sh "cp ${CUSTOM_WORKSPACE}/jenkins-discord-bot/.env ${CUSTOM_WORKSPACE}"
-                        }
+                        sh "pkill -f discord_bot"
                     }
                 }
             }
@@ -137,7 +84,6 @@ pipeline {
                 if (params.BRANCH in ['master', 'main', 'develop']) {
                     build job: 'discord-bot', parameters: [string(name: 'BRANCH', value: 'master')], wait: false
                 }
-                sh "cp ${CUSTOM_WORKSPACE}/discord_bot_tmp ${CUSTOM_WORKSPACE}/discord_bot"
             }
         }
         failure {
