@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'master'
+        label 'controller'
     }
     environment {
         CUSTOM_WORKSPACE = "$JENKINS_HOME/workspace/discord_bot"
@@ -35,15 +35,14 @@ pipeline {
             }
         }
         stage('Build new version') {
-            environment {
-                HTTP_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
-                HTTPS_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
-            }
+            // environment {
+            //    HTTP_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
+            //    HTTPS_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
+            //}
             steps {
                 script {
                     dir("${CUSTOM_WORKSPACE}") {
                         sh "rm -rf jenkins-discord-bot*"
-                        sh "git clone ${params.GIT_REPO} --branch ${params.BRANCH}"
                         dir("jenkins-discord-bot") {
                             sh "go mod init bot"
                             sh "go get github.com/bwmarrin/discordgo"
