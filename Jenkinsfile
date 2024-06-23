@@ -38,8 +38,7 @@ pipeline {
             agent {
                 docker {
                     image 'golang:latest'
-                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE'
-                    customCommand '/bin/sh -c "tail -f /dev/null"'
+                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE tail -f /dev/null'
                 }
             }
             steps {
@@ -71,9 +70,7 @@ pipeline {
             agent {
                 docker {
                     image 'golang:latest'
-                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE'
-                    // Override the default command to keep the container running
-                    customCommand '/bin/sh -c "tail -f /dev/null"'
+                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE tail -f /dev/null'
                 }
             }
             steps {
