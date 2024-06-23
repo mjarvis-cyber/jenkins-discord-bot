@@ -290,7 +290,7 @@ func (bot *Bot) fetchJenkinsJobStatus(jobName string) (string, error) {
     defer resp.Body.Close()
 
     if resp.StatusCode != http.StatusOK {
-        return "<:jenkinsnotrun:1254459002167885988>", fmt.Printf("HTTP request failed with status: %s", resp.Status)
+        return "<:jenkinsnotrun:1254459002167885988>", fmt.Errorf("HTTP request failed with status: %s", resp.Status)
     }
 
     // Read the response body
@@ -328,6 +328,7 @@ func (bot *Bot) fetchJenkinsJobStatus(jobName string) (string, error) {
         return "<:jenkinsnotrun:1254459002167885988>", nil
     }
 }
+
 
 
 
