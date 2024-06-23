@@ -16,9 +16,8 @@ RUN wget https://go.dev/dl/go1.22.4.linux-amd64.tar.gz && \
 
 ENV PATH=$PATH:/usr/local/go/bin
 
-RUN mkdir -p /home/jenkins/agent
-
-WORKDIR /home/jenkins/agent
+COPY . /app
+WORKDIR /app
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
