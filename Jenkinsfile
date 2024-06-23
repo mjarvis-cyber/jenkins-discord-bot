@@ -10,40 +10,7 @@ pipeline {
     }
     parameters {
         string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:OrangeSquirter/jenkins-discord-bot.git')
-        reactiveChoice(
-            name: 'BRANCH',
-            description: 'Select the branch you wish to run',
-            choiceType: 'PT_SINGLE_SELECT',
-            script: [
-                $class: 'GroovyScript',
-                fallbackScript: [
-                    classpath: [],
-                    sandbox: false,
-                    script: 'return []'
-                ],
-                script: [
-                    classpath: [],
-                    sandbox: false,
-                    script: '''
-                    def command = "git ls-remote --heads ${GIT_REPO}"
-                    def proc = command.execute()
-                    proc.waitFor()
-
-                    if (proc.exitValue() != 0) {
-                        println 'Failed to fetch branches'
-                        return []
-                    }
-
-                    def output = proc.in.text
-                    def branches = output.readLines().collect {
-                        it.replaceAll(/.*refs\\/heads\\//, '').trim()
-                    }
-                    return branches.reverse()
-                    '''
-                ]
-            ],
-            referencedParameters: 'GIT_REPO'
-        )
+        string(name: 'BRANCH', description: 'Select the branch you wish to run', defaultValue: 'master')
     }
 
     stages {
