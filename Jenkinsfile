@@ -5,7 +5,7 @@ pipeline {
         }
     }
     environment {
-        CUSTOM_WORKSPACE = "$JENKINS_HOME/workspace/discord_bot"
+        CUSTOM_WORKSPACE = "${JENKINS_HOME}/workspace/${JOB_NAME}"
         SSH_KEY = credentials('ssh-key')
     }
     parameters {
@@ -60,7 +60,6 @@ pipeline {
             steps {
                 script {
                     dir("${CUSTOM_WORKSPACE}") {
-                        // Wait for user input to proceed
                         withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
                             discordSend title: "Discord Bot", description: "Click 'Proceed' to build new discord bot version", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
                         }
@@ -81,7 +80,11 @@ pipeline {
                     sh "tail -f /dev/null &"
                     dir("${CUSTOM_WORKSPACE}") {
                         sh "rm -rf jenkins-discord-bot*"
+                        sh "git clone ${params.GIT_REPO} --branch ${params.BRANCH}"
                         dir("jenkins-discord-bot") {
+                            sh "pwd"
+                            sh "ls -lah"
+
                             sh "go mod init bot"
                             sh "go get github.com/bwmarrin/discordgo"
                             sh "go get github.com/joho/godotenv"
@@ -156,11 +159,11 @@ pipeline {
                 withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
                     discordSend title: "Discord Bot", description: "Releasing new discord bot version", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
                 }
-                sh "rm -rf $CUSTOM_WORKSPACE/jenkins-discord-bot*"
+                sh "rm -rf ${CUSTOM_WORKSPACE}/jenkins-discord-bot*"
                 if (params.BRANCH in ['master', 'main', 'develop']) {
-                    build job: 'Discord Bot', parameters: [ string(name: 'BRANCH', value: 'master'),], wait: false
+                    build job: 'Discord Bot', parameters: [string(name: 'BRANCH', value: 'master')], wait: false
                 }
-                sh "cp $CUSTOM_WORKSPACE/discord_bot_tmp $CUSTOM_WORKSPACE/discord_bot"
+                sh "cp ${CUSTOM_WORKSPACE}/discord_bot_tmp ${CUSTOM_WORKSPACE}/discord_bot"
             }
         }
         failure {
@@ -168,9 +171,9 @@ pipeline {
                 withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
                     discordSend title: "Discord Bot", description: "Rolling bot back to previous version", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
                 }
-                sh "rm -rf $CUSTOM_WORKSPACE/jenkins-discord-bot*"
+                sh "rm -rf ${CUSTOM_WORKSPACE}/jenkins-discord-bot*"
                 if (params.BRANCH in ['master', 'main', 'develop']) {
-                    build job: 'Discord Bot', parameters: [ string(name: 'BRANCH', value: 'master'),], wait: false
+                    build job: 'Discord Bot', parameters: [string(name: 'BRANCH', value: 'master')], wait: false
                 }
             }
         }
@@ -181,7 +184,7 @@ pipeline {
                 } catch (Exception e) {
                     echo "Failed to kill discord_bot process: ${e.getMessage()}"
                 }
-                sh "cat /dev/null > $CUSTOM_WORKSPACE/bot.log"
+                sh "cat /dev/null > ${CUSTOM_WORKSPACE}/bot.log"
             }
         }
     }
