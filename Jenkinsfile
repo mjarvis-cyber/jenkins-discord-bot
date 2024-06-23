@@ -38,11 +38,12 @@ pipeline {
             agent {
                 docker {
                     image 'golang:latest'
-                    args '--entrypoint tail -f /dev/null -v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE'
+                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE --entrypoint /bin/sh'
                 }
             }
             steps {
                 script {
+                    sh "tail -f /dev/null &"
                     dir("${CUSTOM_WORKSPACE}") {
                         sh "rm -rf jenkins-discord-bot*"
                         dir("jenkins-discord-bot") {
@@ -70,7 +71,7 @@ pipeline {
             agent {
                 docker {
                     image 'golang:latest'
-                    args '--entrypoint tail -f /dev/null -v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE'
+                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE --entrypoint /bin/sh'
                 }
             }
             steps {
