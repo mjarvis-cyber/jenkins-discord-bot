@@ -7,40 +7,7 @@ pipeline {
     }
     parameters {
         string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:OrangeSquirter/jenkins-discord-bot.git')
-        reactiveChoice(
-            name: 'BRANCH',
-            description: 'Select the branch you wish to run',
-            choiceType: 'PT_SINGLE_SELECT',
-            script: [
-                $class: 'GroovyScript',
-                fallbackScript: [
-                    classpath: [],
-                    sandbox: false,
-                    script: 'return []'
-                ],
-                script: [
-                    classpath: [],
-                    sandbox: false,
-                    script: '''
-                    def command = "git ls-remote --heads ${GIT_REPO}"
-                    def proc = command.execute()
-                    proc.waitFor()
-                    
-                    if (proc.exitValue() != 0) {
-                        println 'Failed to fetch branches'
-                        return []
-                    }
-
-                    def output = proc.in.text
-                    def branches = output.readLines().collect {
-                        it.replaceAll(/.*refs\\/heads\\//, '').trim()
-                    }
-                    return branches.reverse()
-                    '''
-                ]
-            ],
-            referencedParameters: 'GIT_REPO'
-        )
+        string( name: 'BRANCH', description: 'Select the branch you wish to run', defaultValue: 'master')
     }
 
     stages {
@@ -139,37 +106,6 @@ pipeline {
                 }
             }
         }
-        stage('Release to changes to git') {
-            when {
-                expression { params.BRANCH == 'develop' }
-            }
-            steps {
-                script {
-                    withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
-                        discordSend title: "Discord Bot", description: "Releasing new bot version to git", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
-                    }
-                    dir("${CUSTOM_WORKSPACE}/jenkins-discord-bot") {
-                        // Reset hard to origin/develop
-                        sh "git reset --hard origin/develop"
-
-                        // Merge develop into master
-                        sh "git checkout master"
-                        sh "git merge develop"
-
-                        // Push master to remote
-                        sh "git push origin master"
-
-                        // Merge master into develop locally
-                        sh "git checkout develop"
-                        sh "git merge master"
-
-                        // Push develop to remote
-                        sh "git push origin develop"
-                    }
-                }
-            }
-        }
-    }
     post {
         success {
             script {
