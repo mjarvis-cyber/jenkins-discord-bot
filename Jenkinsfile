@@ -48,10 +48,10 @@ pipeline {
                 script {
                     sh "tail -f /dev/null &"
                     dir("${CUSTOM_WORKSPACE}") {
+                        sh "mkdir -p ~/.ssh && yes | cp id_rsa ~/.ssh/id_rsa"
+                        sh "ssh-keyscan github.com >> ~/.ssh/known_hosts"
                         sh "rm -rf jenkins-discord-bot*"
-                        sh """
-                        GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no' git clone ${params.GIT_REPO} --branch ${params.BRANCH}
-                        """
+                        sh "git clone ${params.GIT_REPO} --branch ${params.BRANCH}"
                         dir("jenkins-discord-bot") {
                             sh "pwd"
                             sh "ls -lah"
