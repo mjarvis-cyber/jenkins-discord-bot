@@ -6,7 +6,6 @@ pipeline {
     }
     environment {
         CUSTOM_WORKSPACE = "${JENKINS_HOME}/workspace/${JOB_NAME}"
-        SSH_KEY = credentials('ssh-key')
     }
     parameters {
         string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:OrangeSquirter/jenkins-discord-bot.git')
@@ -14,6 +13,15 @@ pipeline {
     }
 
     stages {
+        stage('Prepare SSH Key') {
+            steps {
+                script {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'ssh-key', keyFileVariable: 'SSH_KEY_FILE')]) {
+                        sh "cp ${SSH_KEY_FILE} ${CUSTOM_WORKSPACE}/id_rsa"
+                    }
+                }
+            }
+        }
         stage('Run Discord Bot') {
             steps {
                 script {
@@ -36,12 +44,6 @@ pipeline {
             }
         }
         stage('Build new version') {
-            /*
-            environment {
-                HTTP_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
-                HTTPS_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
-            }
-            */
             steps {
                 script {
                     sh "tail -f /dev/null &"
@@ -76,11 +78,15 @@ pipeline {
             agent {
                 docker {
                     image 'golang:latest'
-                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE --entrypoint /bin/sh'
+                    args "-v ${CUSTOM_WORKSPACE}:${CUSTOM_WORKSPACE} --entrypoint /bin/sh"
                 }
             }
             steps {
                 script {
+                    sh "cp ${CUSTOM_WORKSPACE}/id_rsa /root/.ssh/id_rsa"
+                    sh "chmod 600 /root/.ssh/id_rsa"
+                    sh "ssh-keyscan github.com >> /root/.ssh/known_hosts"
+
                     // Run the binary
                     dir("${CUSTOM_WORKSPACE}/jenkins-discord-bot") {
                         sh "touch bot.log"
@@ -112,8 +118,8 @@ pipeline {
                         if (!waitForOutput) {
                             error "Expected output 'Bot is connected to Discord' not received within ${timeout} seconds"
                         } else {
-                            sh "cp $CUSTOM_WORKSPACE/jenkins-discord-bot/discord_bot_test $CUSTOM_WORKSPACE/discord_bot_tmp"
-                            sh "cp $CUSTOM_WORKSPACE/jenkins-discord-bot/.env $CUSTOM_WORKSPACE"
+                            sh "cp ${CUSTOM_WORKSPACE}/jenkins-discord-bot/discord_bot_test ${CUSTOM_WORKSPACE}/discord_bot_tmp"
+                            sh "cp ${CUSTOM_WORKSPACE}/jenkins-discord-bot/.env ${CUSTOM_WORKSPACE}"
                         }
                     }
                 }
