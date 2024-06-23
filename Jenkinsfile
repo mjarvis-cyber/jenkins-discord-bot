@@ -66,6 +66,7 @@ pipeline {
                 }
             }
         }
+        /*
         stage('Test and Stage for Deployment') {
             agent {
                 docker {
@@ -113,6 +114,7 @@ pipeline {
                 }
             }
         }
+        */
     }
     post {
         success {
@@ -140,8 +142,12 @@ pipeline {
         }
         always {
             script {
-                sh 'pkill -f discord_bot'
-                sh "cat /dev/null > $CUSTOM_WORKSPACE/bot.log"
+                try {
+                    sh 'pkill -f discord_bot'
+                } catch (Exception e) {
+                    echo "Failed to kill discord_bot process: ${e.getMessage()}"
+                }
+                // sh "cat /dev/null > $CUSTOM_WORKSPACE/bot.log"
             }
         }
     }
