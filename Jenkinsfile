@@ -39,12 +39,12 @@ pipeline {
                             sh "go mod init bot"
                             sh "go get github.com/bwmarrin/discordgo"
                             sh "go get github.com/joho/godotenv"
-                            withCredentials([string(credentialsId: 'JENKINS_CREDENTIAL_ID', variable: 'JENKINS_API_TOKEN')]) {
+                            withCredentials([string(credentialsId: 'JENKINS_API_TOKEN', variable: 'JENKINS_API_TOKEN')]) {
                                 // Replace values in the .env file with Jenkins credentials
                                 sh "sed -i 's|JENKINS_TOKEN=.*|JENKINS_TOKEN=${JENKINS_API_TOKEN}|' .env"
                             }
                             sh "sed -i 's|JENKINS_URL=.*|JENKINS_URL=${params.JENKINS_ENDPOINT}|' .env"
-                            withCredentials([string(credentialsId: 'DISCORD_CREDENTIAL_ID', variable: 'DISCORD_API_TOKEN')]) {
+                            withCredentials([string(credentialsId: 'JENKINS_API_TOKEN', variable: 'DISCORD_API_TOKEN')]) {
                                 // Replace values in the .env file with Jenkins credentials
                                 sh "sed -i 's|DISCORD_TOKEN=.*|DISCORD_TOKEN=${DISCORD_API_TOKEN}|' .env"
                             }
