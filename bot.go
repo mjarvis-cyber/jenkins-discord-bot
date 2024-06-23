@@ -22,13 +22,13 @@ type Bot struct {
 }
 
 var (
-	JenkinsToken string
-	Logger       *log.Logger
+	JenkinsToken    string
+    JenkinsURL      string
+	Logger          *log.Logger
 )
 
 const (
-	JenkinsURL = "http://127.0.0.1:8080"
-	LogFile    = "bot.log"
+	LogFile     = "bot.log"
 )
 
 func main() {
@@ -52,6 +52,7 @@ func main() {
 
 	// Use the loaded environment variables
 	JenkinsToken = os.Getenv("JENKINS_TOKEN")
+    JenkinsURL = os.Getenv("JENKINS_URL")
 	DiscordToken := os.Getenv("DISCORD_TOKEN")
 
 	discord, err := discordgo.New("Bot " + DiscordToken)

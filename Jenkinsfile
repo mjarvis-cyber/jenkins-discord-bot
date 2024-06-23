@@ -9,6 +9,7 @@ pipeline {
     }
     parameters {
         string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:OrangeSquirter/jenkins-discord-bot.git')
+        string(name: 'JENKINS_ENDPOINT', description: 'Specify jenkins endpoint', defaultValue: 'http://jenkins.pizzasec.com:8080')
         string(name: 'BRANCH', description: 'Select the branch you wish to run', defaultValue: 'master')
     }
 
@@ -42,11 +43,12 @@ pipeline {
                                 // Replace values in the .env file with Jenkins credentials
                                 sh "sed -i 's|JENKINS_TOKEN=.*|JENKINS_TOKEN=${JENKINS_API_TOKEN}|' .env"
                             }
-
+                            sh "sed -i 's|JENKINS_URL=.*|JENKINS_URL=${params.JENKINS_ENDPOINT}|' .env"
                             withCredentials([string(credentialsId: 'DISCORD_CREDENTIAL_ID', variable: 'DISCORD_API_TOKEN')]) {
                                 // Replace values in the .env file with Jenkins credentials
                                 sh "sed -i 's|DISCORD_TOKEN=.*|DISCORD_TOKEN=${DISCORD_API_TOKEN}|' .env"
                             }
+                            
 
                             // Build the Go program
                             sh "go build -o discord_bot"
@@ -61,19 +63,21 @@ pipeline {
                     // Run the binary
                     dir("${CUSTOM_WORKSPACE}/jenkins-discord-bot") {
                         sh "touch bot.log"
-                        def output = sh(script: "./discord_bot &", returnStdout: true).trim()
+                        def process = sh(script: "./discord_bot & echo \$!", returnStdout: true).trim()
 
-                        // Build the bot daily
-                        sleep(time:1, unit:'DAYS')
-                        
+                        env.BOT_PROCESS_ID = process
 
-                        // Terminate the binary after 30 seconds
-                        sh "pkill -f discord_bot"
+                        input message: 'Proceed to terminate bot deployment?', parameters: [
+                            [$class: 'BooleanParameterDefinition', defaultValue: true, description: 'Terminate bot deployment?', name: 'TERMINATE_EARLY']
+                        ]
+                        if (params.TERMINATE_EARLY) {
+                            sh "pkill -P ${env.BOT_PROCESS_ID}"
+                            error "Bot deployment terminated by user"
+                        }
                     }
                 }
             }
         }
-    }
     post {
         success {
             script {
