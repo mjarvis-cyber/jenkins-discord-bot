@@ -1,5 +1,9 @@
 pipeline {
-
+    agent {
+        node {
+            label 'main'
+        }
+    }
     environment {
         CUSTOM_WORKSPACE = "${JENKINS_HOME}/workspace/${JOB_NAME}"
     }
