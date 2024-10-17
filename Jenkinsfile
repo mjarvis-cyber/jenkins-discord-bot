@@ -29,16 +29,18 @@ pipeline {
                             label 'main'
                         }
                     }
-                    script {
-                        def images = build job: 'docker-bake',
-                            parameters: [
-                                string(name: 'PROXMOX_IP',      value: params.PROXMOX_IP),
-                                string(name: 'PROXMOX_NODE',    value: params.PROXMOX_NODE),
-                                string(name: 'PROXMOX_POOL',    value: params.PROXMOX_POOL),
-                                string(name: 'TEMPLATE',        value: params.TEMPLATE)
-                            ],
-                            propagate: true, 
-                            wait: true
+                    steps {
+                        script {
+                            def images = build job: 'docker-bake',
+                                parameters: [
+                                    string(name: 'PROXMOX_IP',      value: params.PROXMOX_IP),
+                                    string(name: 'PROXMOX_NODE',    value: params.PROXMOX_NODE),
+                                    string(name: 'PROXMOX_POOL',    value: params.PROXMOX_POOL),
+                                    string(name: 'TEMPLATE',        value: params.TEMPLATE)
+                                ],
+                                propagate: true, 
+                                wait: true
+                        }
                     }
                 }
                 stage('Build VM'){
@@ -47,29 +49,31 @@ pipeline {
                             label 'main'
                         }
                     }
-                    script {
-                        def buildbox = build job: 'box-builder', 
-                            parameters: [
-                                string(name: 'PROXMOX_IP',      value: params.PROXMOX_IP),
-                                string(name: 'PROXMOX_NODE',    value: params.PROXMOX_NODE),
-                                string(name: 'PROXMOX_POOL',    value: params.PROXMOX_POOL),
-                                string(name: 'TEMPLATE',        value: params.TEMPLATE),
-                                string(name: 'CORES',           value: params.CORES),
-                                string(name: 'MEMORY',          value: params.MEMORY),
-                                string(name: 'STORAGE',         value: params.STORAGE),
-                                string(name: 'VM_NAME',         value: params.VM_NAME),
-                                string(name: 'ROLE',            value: params.ROLE),
-                                string(name: 'BRANCH',          value: params.BRANCH),
-                                string(name: 'NETWORK',         value: params.NETWORK)
-                            ], 
-                            propagate: true, 
-                            wait: true
+                    steps {
+                        script {
+                            def buildbox = build job: 'box-builder', 
+                                parameters: [
+                                    string(name: 'PROXMOX_IP',      value: params.PROXMOX_IP),
+                                    string(name: 'PROXMOX_NODE',    value: params.PROXMOX_NODE),
+                                    string(name: 'PROXMOX_POOL',    value: params.PROXMOX_POOL),
+                                    string(name: 'TEMPLATE',        value: params.TEMPLATE),
+                                    string(name: 'CORES',           value: params.CORES),
+                                    string(name: 'MEMORY',          value: params.MEMORY),
+                                    string(name: 'STORAGE',         value: params.STORAGE),
+                                    string(name: 'VM_NAME',         value: params.VM_NAME),
+                                    string(name: 'ROLE',            value: params.ROLE),
+                                    string(name: 'BRANCH',          value: params.BRANCH),
+                                    string(name: 'NETWORK',         value: params.NETWORK)
+                                ], 
+                                propagate: true, 
+                                wait: true
 
-                        copyArtifacts(
-                            projectName: 'box-builder', 
-                            selector: specific("${buildbox.number}"),
-                            filter: 'vm_metadata.json'
-                        )
+                            copyArtifacts(
+                                projectName: 'box-builder', 
+                                selector: specific("${buildbox.number}"),
+                                filter: 'vm_metadata.json'
+                            )
+                        }
                     }
                 }
             }
