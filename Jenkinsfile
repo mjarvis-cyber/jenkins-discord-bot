@@ -78,7 +78,7 @@ pipeline {
                 }
             }
         }
-        stage('Build Parallel') {
+        stage('Deploy') {
             agent {
                 node {
                     label 'main'
