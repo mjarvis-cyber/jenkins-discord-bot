@@ -84,8 +84,10 @@ pipeline {
                     label 'main'
                 }
             }
-            script {
-                sh "echo DUNZO!!!"
+            steps {
+                script {
+                    sh "echo DUNZO!!!"
+                }
             }
         }
     }
