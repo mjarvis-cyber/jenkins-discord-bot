@@ -1,9 +1,5 @@
 pipeline {
-    agent {
-        dockerfile {
-            filename 'Dockerfile'
-        }
-    }
+
     environment {
         CUSTOM_WORKSPACE = "${JENKINS_HOME}/workspace/${JOB_NAME}"
     }
@@ -24,34 +20,43 @@ pipeline {
             }
         }
         stage('Build discord bot') {
-            steps {
-                script {
-                    sh "tail -f /dev/null &"
-                    dir("${CUSTOM_WORKSPACE}") {
-                        sh "mkdir -p ~/.ssh && yes | cp id_rsa ~/.ssh/id_rsa"
-                        sh "ssh-keyscan github.com >> ~/.ssh/known_hosts"
-                        sh "rm -rf jenkins-discord-bot*"
-                        sh "git clone ${params.GIT_REPO} --branch ${params.BRANCH}"
-                        dir("jenkins-discord-bot") {
-                            sh "pwd"
-                            sh "ls -lah"
+            agent {
+                node {
+                    label 'admin'
+                }
+            }
+            stages {
+                stage('Run in Docker') {
+                    agent {
+                        dockerfile {
+                            filename 'Dockerfile'
+                        }
+                    }
+                    steps {
+                        script {
+                            sh "tail -f /dev/null &"
+                            dir("${CUSTOM_WORKSPACE}") {
+                                sh "mkdir -p ~/.ssh && yes | cp id_rsa ~/.ssh/id_rsa"
+                                sh "ssh-keyscan github.com >> ~/.ssh/known_hosts"
+                                sh "rm -rf jenkins-discord-bot*"
+                                sh "git clone ${params.GIT_REPO} --branch ${params.BRANCH}"
+                                dir("jenkins-discord-bot") {
+                                    sh "pwd"
+                                    sh "ls -lah"
 
-                            sh "go mod init bot"
-                            sh "go get github.com/bwmarrin/discordgo"
-                            sh "go get github.com/joho/godotenv"
-                            withCredentials([string(credentialsId: 'JENKINS_API_TOKEN', variable: 'JENKINS_API_TOKEN')]) {
-                                // Replace values in the .env file with Jenkins credentials
-                                sh "sed -i 's|JENKINS_TOKEN=.*|JENKINS_TOKEN=${JENKINS_API_TOKEN}|' .env"
+                                    sh "go mod init bot"
+                                    sh "go get github.com/bwmarrin/discordgo"
+                                    sh "go get github.com/joho/godotenv"
+                                    withCredentials([string(credentialsId: 'JENKINS_API_TOKEN', variable: 'JENKINS_API_TOKEN')]) {
+                                        sh "sed -i 's|JENKINS_TOKEN=.*|JENKINS_TOKEN=${JENKINS_API_TOKEN}|' .env"
+                                    }
+                                    sh "sed -i 's|JENKINS_URL=.*|JENKINS_URL=${params.JENKINS_ENDPOINT}|' .env"
+                                    withCredentials([string(credentialsId: 'DISCORD_CREDENTIAL_ID', variable: 'DISCORD_API_TOKEN')]) {
+                                        sh "sed -i 's|DISCORD_TOKEN=.*|DISCORD_TOKEN=${DISCORD_API_TOKEN}|' .env"
+                                    }
+                                    sh "go build -o discord_bot"
+                                }
                             }
-                            sh "sed -i 's|JENKINS_URL=.*|JENKINS_URL=${params.JENKINS_ENDPOINT}|' .env"
-                            withCredentials([string(credentialsId: 'DISCORD_CREDENTIAL_ID', variable: 'DISCORD_API_TOKEN')]) {
-                                // Replace values in the .env file with Jenkins credentials
-                                sh "sed -i 's|DISCORD_TOKEN=.*|DISCORD_TOKEN=${DISCORD_API_TOKEN}|' .env"
-                            }
-                            
-
-                            // Build the Go program
-                            sh "go build -o discord_bot"
                         }
                     }
                 }
@@ -60,7 +65,6 @@ pipeline {
         stage('Deploy bot') {
             steps {
                 script {
-                    // Run the binary
                     dir("${CUSTOM_WORKSPACE}/jenkins-discord-bot") {
                         sh "touch bot.log"
                         def process = sh(script: "./discord_bot & echo \$!", returnStdout: true).trim()
