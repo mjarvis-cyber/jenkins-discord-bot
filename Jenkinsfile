@@ -7,113 +7,81 @@ pipeline {
         string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:OrangeSquirter/jenkins-discord-bot.git')
         string(name: 'JENKINS_ENDPOINT', description: 'Specify jenkins endpoint', defaultValue: 'http://jenkins.pizzasec.com:8080')
         string(name: 'BRANCH', description: 'Select the branch you wish to run', defaultValue: 'master')
+        string(name: 'PROXMOX_IP', defaultValue: 'cyberops2.pizzasec.com', description: 'ProxMox IP address')
+        string(name: 'PROXMOX_NODE', defaultValue: 'cyberops2', description: 'ProxMox to build the box on')
+        string(name: 'PROXMOX_POOL', defaultValue: 'Admin', description: 'ProxMox resource pool to assign')
+        string(name: 'TEMPLATE', defaultValue: 'ubuntu-24', description: 'Name of the template to use')
+        choice(name: 'CORES', choices: ['2'], description: 'Number of cores that will be allocated to the VM')
+        choice(name: 'MEMORY', choices: ['2048'], description: 'Memory allocation for the VM in MB')
+        string(name: 'STORAGE', defaultValue: '20', description: 'Storage for the VM in GB')
+        string(name: 'VM_NAME', defaultValue: 'discord-bot', description: 'Name of the box to build')
+        string(name: 'ROLE', defaultValue: 'jenkins', description: 'Why is this box being built')
+        choice(name: 'NETWORK', choices: ['vmbr1'], description: 'Network to place the VM on')
+        string(name: 'DOCKER_REGISTRY', defaultValue: 'registry.pizzasec.com', description: 'HTTPS endpoint for private docker registry')
     }
 
     stages {
-        stage('Prepare SSH Key') {
-            steps {
-                script {
-                    withCredentials([sshUserPrivateKey(credentialsId: 'ssh-key', keyFileVariable: 'SSH_KEY_FILE')]) {
-                        sh "cp ${SSH_KEY_FILE} ${CUSTOM_WORKSPACE}/id_rsa"
+        stage('Build Parallel') {
+            parallel {
+                stage('Build Docker Images'){
+                    agent {
+                        node {
+                            label 'main'
+                        }
+                    }
+                    script {
+                        def images = build job: 'docker-bake',
+                            parameters: [
+                                string(name: 'PROXMOX_IP',      value: params.PROXMOX_IP),
+                                string(name: 'PROXMOX_NODE',    value: params.PROXMOX_NODE),
+                                string(name: 'PROXMOX_POOL',    value: params.PROXMOX_POOL),
+                                string(name: 'TEMPLATE',        value: params.TEMPLATE)
+                            ],
+                            propagate: true, 
+                            wait: true
+                    }
+                }
+                stage('Build VM'){
+                    agent {
+                        node {
+                            label 'main'
+                        }
+                    }
+                    script {
+                        def buildbox = build job: 'box-builder', 
+                            parameters: [
+                                string(name: 'PROXMOX_IP',      value: params.PROXMOX_IP),
+                                string(name: 'PROXMOX_NODE',    value: params.PROXMOX_NODE),
+                                string(name: 'PROXMOX_POOL',    value: params.PROXMOX_POOL),
+                                string(name: 'TEMPLATE',        value: params.TEMPLATE),
+                                string(name: 'CORES',           value: params.CORES),
+                                string(name: 'MEMORY',          value: params.MEMORY),
+                                string(name: 'STORAGE',         value: params.STORAGE),
+                                string(name: 'VM_NAME',         value: params.VM_NAME),
+                                string(name: 'ROLE',            value: params.ROLE),
+                                string(name: 'BRANCH',          value: params.BRANCH),
+                                string(name: 'NETWORK',         value: params.NETWORK)
+                            ], 
+                            propagate: true, 
+                            wait: true
+
+                        copyArtifacts(
+                            projectName: 'box-builder', 
+                            selector: specific("${buildbox.number}"),
+                            filter: 'vm_metadata.json'
+                        )
                     }
                 }
             }
         }
-        stage('Build discord bot') {
+        stage('Build Parallel') {
             agent {
                 node {
-                    label 'admin'
+                    label 'main'
                 }
             }
-            stages {
-                stage('Run in Docker') {
-                    agent {
-                        dockerfile {
-                            filename 'Dockerfile'
-                        }
-                    }
-                    steps {
-                        script {
-                            sh "tail -f /dev/null &"
-                            dir("${CUSTOM_WORKSPACE}") {
-                                sh "mkdir -p ~/.ssh && yes | cp id_rsa ~/.ssh/id_rsa"
-                                sh "ssh-keyscan github.com >> ~/.ssh/known_hosts"
-                                sh "rm -rf jenkins-discord-bot*"
-                                sh "git clone ${params.GIT_REPO} --branch ${params.BRANCH}"
-                                dir("jenkins-discord-bot") {
-                                    sh "pwd"
-                                    sh "ls -lah"
-
-                                    sh "go mod init bot"
-                                    sh "go get github.com/bwmarrin/discordgo"
-                                    sh "go get github.com/joho/godotenv"
-                                    withCredentials([string(credentialsId: 'JENKINS_API_TOKEN', variable: 'JENKINS_API_TOKEN')]) {
-                                        sh "sed -i 's|JENKINS_TOKEN=.*|JENKINS_TOKEN=${JENKINS_API_TOKEN}|' .env"
-                                    }
-                                    sh "sed -i 's|JENKINS_URL=.*|JENKINS_URL=${params.JENKINS_ENDPOINT}|' .env"
-                                    withCredentials([string(credentialsId: 'DISCORD_CREDENTIAL_ID', variable: 'DISCORD_API_TOKEN')]) {
-                                        sh "sed -i 's|DISCORD_TOKEN=.*|DISCORD_TOKEN=${DISCORD_API_TOKEN}|' .env"
-                                    }
-                                    sh "go build -o discord_bot"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        stage('Deploy bot') {
-            steps {
-                script {
-                    dir("${CUSTOM_WORKSPACE}/jenkins-discord-bot") {
-                        sh "touch bot.log"
-                        def process = sh(script: "./discord_bot & echo \$!", returnStdout: true).trim()
-
-                        env.BOT_PROCESS_ID = process
-
-                        input message: 'Proceed to terminate bot deployment?', parameters: [
-                            [$class: 'BooleanParameterDefinition', defaultValue: true, description: 'Terminate bot deployment?', name: 'TERMINATE_EARLY']
-                        ]
-                        if (params.TERMINATE_EARLY) {
-                            sh "pkill -P ${env.BOT_PROCESS_ID}"
-                            error "Bot deployment terminated by user"
-                        }
-                    }
-                }
-            }
-        }
-    }
-    post {
-        success {
             script {
-                withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
-                    discordSend title: "Discord Bot", description: "Releasing new discord bot version", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
-                }
-                sh "rm -rf ${CUSTOM_WORKSPACE}/jenkins-discord-bot*"
-                if (params.BRANCH in ['master', 'main', 'develop']) {
-                    build job: 'discord-bot', parameters: [string(name: 'BRANCH', value: 'master')], wait: false
-                }
-            }
-        }
-        failure {
-            script {
-                withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
-                    discordSend title: "Discord Bot", description: "Rolling bot back to previous version", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
-                }
-                sh "rm -rf ${CUSTOM_WORKSPACE}/jenkins-discord-bot*"
-                if (params.BRANCH in ['master', 'main', 'develop']) {
-                    build job: 'discord-bot', parameters: [string(name: 'BRANCH', value: 'master')], wait: false
-                }
-            }
-        }
-        always {
-            script {
-                try {
-                    sh 'pkill -f discord_bot'
-                } catch (Exception e) {
-                    echo "Failed to kill discord_bot process: ${e.getMessage()}"
-                }
-                sh "cat /dev/null > ${CUSTOM_WORKSPACE}/bot.log"
+                sh "echo DUNZO!!!"
             }
         }
     }
