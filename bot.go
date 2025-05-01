@@ -811,7 +811,7 @@ func fetchReekGIF() (string, error) {
 	}
 
 	// Fetch from Giphy
-	apiKey := os.Getenv("GIPHY_API_KEY")
+	apiKey := os.Getenv("GIPHY_KEY")
 	limit := 20
 	rejectIDs := map[string]bool{
 		"1JThPpN776F9e": true,
