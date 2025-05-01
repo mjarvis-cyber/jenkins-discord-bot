@@ -95,7 +95,7 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 		session.ChannelMessageSend(message.ChannelID, "Austin TRAN Daniels")
 		gifURL, err := fetchReekGIF()
 		if err != nil {
-			Logger.Println("Failed to fetch reek gif")
+			Logger.Println("Failed to fetch reek gif, %s", err)
 			return
 		}
 		session.ChannelMessageSend(message.ChannelID, gifURL)
