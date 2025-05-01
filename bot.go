@@ -100,9 +100,15 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 	switch {
 	case strings.Contains(message.Content, "!steak"):
 		session.ChannelMessageSend(message.ChannelID, "time")
+		gifURL, err := getGIFURL("steak")
+		if err != nil {
+			Logger.Println("Failed to fetch reek gif, %s", err)
+			return
+		}
+		session.ChannelMessageSend(message.ChannelID, gifURL)
 	case strings.Contains(message.Content, "!reek"):
 		session.ChannelMessageSend(message.ChannelID, "Austin TRAN Daniels")
-		gifURL, err := fetchReekGIF()
+		gifURL, err := getGIFURL("reek_game_of_thrones")
 		if err != nil {
 			Logger.Println("Failed to fetch reek gif, %s", err)
 			return
@@ -795,30 +801,27 @@ func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson map[strin
 	return nil
 }
 
-func fetchReekGIF() (string, error) {
-	searchTerm := "reek_game_of_thromnes"
+func getGIFURL(searchTerm string) (string, error) {
+	apiKey := os.Getenv("GIPHY_KEY")
+	limit := 50
 
+	rejectIDs := map[string]bool{
+		"1JThPpN776F9e": true,
+		"A0SDbHUTcClz2": true,
+	}
+
+	// Check cache
 	cacheMutex.RLock()
 	gifs, found := gifCache[searchTerm]
 	last, ok := lastFetch[searchTerm]
 	cacheMutex.RUnlock()
 
-	if found && ok && time.Since(last) < cacheTimeout {
-		if len(gifs) == 0 {
-			return "", fmt.Errorf("cached but all GIFs rejected previously")
-		}
+	if found && ok && time.Since(last) < cacheTimeout && len(gifs) > 0 {
 		return gifs[rand.Intn(len(gifs))], nil
 	}
 
 	// Fetch from Giphy
-	apiKey := os.Getenv("GIPHY_KEY")
-	limit := 20
-	rejectIDs := map[string]bool{
-		"1JThPpN776F9e": true,
-	}
-
 	endpoint := fmt.Sprintf("https://api.giphy.com/v1/gifs/search?api_key=%s&q=%s&limit=%d", url.QueryEscape(apiKey), url.QueryEscape(searchTerm), limit)
-
 	resp, err := http.Get(endpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to call Giphy API: %w", err)
@@ -835,16 +838,17 @@ func fetchReekGIF() (string, error) {
 			} `json:"images"`
 		} `json:"data"`
 	}
-
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", fmt.Errorf("failed to parse Giphy response: %w", err)
 	}
 
 	var validGIFs []string
 	for _, gif := range result.Data {
-		if !rejectIDs[gif.ID] {
-			validGIFs = append(validGIFs, gif.Images.Original.URL)
+		if rejectIDs[gif.ID] {
+			Logger.Printf("Rejected GIF ID %s (%s)\n", gif.ID, gif.Images.Original.URL)
+			continue
 		}
+		validGIFs = append(validGIFs, gif.Images.Original.URL)
 	}
 
 	cacheMutex.Lock()
@@ -853,7 +857,7 @@ func fetchReekGIF() (string, error) {
 	cacheMutex.Unlock()
 
 	if len(validGIFs) == 0 {
-		return "", fmt.Errorf("no valid GIFs found (all rejected)")
+		return "https://media.giphy.com/media/VbnUQpnihPSIgIXuZv/giphy.gif", nil // fallback
 	}
 
 	return validGIFs[rand.Intn(len(validGIFs))], nil
