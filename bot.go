@@ -11,6 +11,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
@@ -26,6 +28,13 @@ var (
 	JenkinsToken string
 	JenkinsURL   string
 	Logger       *log.Logger
+)
+
+var (
+	gifCache     = make(map[string][]string)
+	cacheMutex   sync.RWMutex
+	cacheTimeout = 60 * time.Minute
+	lastFetch    = make(map[string]time.Time)
 )
 
 const (
@@ -787,9 +796,26 @@ func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson map[strin
 }
 
 func fetchReekGIF() (string, error) {
-	apiKey := os.Getenv("GIPHY_KEY")
-	searchTerm := "reek_game_of_thrones"
-	limit := 10
+	searchTerm := "reek_game_of_thromnes"
+
+	cacheMutex.RLock()
+	gifs, found := gifCache[searchTerm]
+	last, ok := lastFetch[searchTerm]
+	cacheMutex.RUnlock()
+
+	if found && ok && time.Since(last) < cacheTimeout {
+		if len(gifs) == 0 {
+			return "", fmt.Errorf("cached but all GIFs rejected previously")
+		}
+		return gifs[rand.Intn(len(gifs))], nil
+	}
+
+	// Fetch from Giphy
+	apiKey := os.Getenv("GIPHY_API_KEY")
+	limit := 20
+	rejectIDs := map[string]bool{
+		"1JThPpN776F9e": true,
+	}
 
 	endpoint := fmt.Sprintf("https://api.giphy.com/v1/gifs/search?api_key=%s&q=%s&limit=%d", url.QueryEscape(apiKey), url.QueryEscape(searchTerm), limit)
 
@@ -801,6 +827,7 @@ func fetchReekGIF() (string, error) {
 
 	var result struct {
 		Data []struct {
+			ID     string `json:"id"`
 			Images struct {
 				Original struct {
 					URL string `json:"url"`
@@ -809,16 +836,25 @@ func fetchReekGIF() (string, error) {
 		} `json:"data"`
 	}
 
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", fmt.Errorf("failed to parse Giphy response: %w", err)
 	}
 
-	if len(result.Data) == 0 {
-		return "", fmt.Errorf("no GIFs found")
+	var validGIFs []string
+	for _, gif := range result.Data {
+		if !rejectIDs[gif.ID] {
+			validGIFs = append(validGIFs, gif.Images.Original.URL)
+		}
 	}
 
-	// Optionally pick a random one:
-	index := rand.Intn(len(result.Data))
-	return result.Data[index].Images.Original.URL, nil
+	cacheMutex.Lock()
+	gifCache[searchTerm] = validGIFs
+	lastFetch[searchTerm] = time.Now()
+	cacheMutex.Unlock()
+
+	if len(validGIFs) == 0 {
+		return "", fmt.Errorf("no valid GIFs found (all rejected)")
+	}
+
+	return validGIFs[rand.Intn(len(validGIFs))], nil
 }
