@@ -100,7 +100,7 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 	switch {
 	case strings.Contains(message.Content, "!steak"):
 		session.ChannelMessageSend(message.ChannelID, "time")
-		gifURL, err := getGIFURL("steak")
+		gifURL, err := getGIFURL("steak", 50)
 		if err != nil {
 			Logger.Println("Failed to fetch reek gif, %s", err)
 			return
@@ -108,7 +108,7 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 		session.ChannelMessageSend(message.ChannelID, gifURL)
 	case strings.Contains(message.Content, "!reek"):
 		session.ChannelMessageSend(message.ChannelID, "Austin TRAN Daniels")
-		gifURL, err := getGIFURL("reek_game_of_thrones")
+		gifURL, err := getGIFURL("reek_game_of_thrones", 20)
 		if err != nil {
 			Logger.Println("Failed to fetch reek gif, %s", err)
 			return
@@ -801,9 +801,8 @@ func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson map[strin
 	return nil
 }
 
-func getGIFURL(searchTerm string) (string, error) {
+func getGIFURL(searchTerm string, limit int) (string, error) {
 	apiKey := os.Getenv("GIPHY_KEY")
-	limit := 50
 
 	rejectIDs := map[string]bool{
 		"1JThPpN776F9e": true,
