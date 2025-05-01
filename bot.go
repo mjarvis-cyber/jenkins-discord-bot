@@ -14,6 +14,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
+	"golang.org/x/exp/rand"
 )
 
 type Bot struct {
@@ -92,6 +93,12 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 		session.ChannelMessageSend(message.ChannelID, "time")
 	case strings.Contains(message.Content, "!reek"):
 		session.ChannelMessageSend(message.ChannelID, "Austin TRAN Daniels")
+		gifURL, err := fetchReekGIF()
+		if err != nil {
+			Logger.Println("Failed to fetch reek gif")
+			return
+		}
+		session.ChannelMessageSend(message.ChannelID, gifURL)
 	case strings.Contains(message.Content, "!list"):
 		jobList, err := bot.getJenkinsJobList()
 		if err != nil {
@@ -777,4 +784,41 @@ func (bot *Bot) triggerJenkinsPipelineParams(jobName string, inputJson map[strin
 	}
 
 	return nil
+}
+
+func fetchReekGIF() (string, error) {
+	apiKey := os.Getenv("GIPHY_KEY")
+	searchTerm := "reek_game_of_thrones"
+	limit := 10
+
+	endpoint := fmt.Sprintf("https://api.giphy.com/v1/gifs/search?api_key=%s&q=%s&limit=%d", url.QueryEscape(apiKey), url.QueryEscape(searchTerm), limit)
+
+	resp, err := http.Get(endpoint)
+	if err != nil {
+		return "", fmt.Errorf("failed to call Giphy API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Data []struct {
+			Images struct {
+				Original struct {
+					URL string `json:"url"`
+				} `json:"original"`
+			} `json:"images"`
+		} `json:"data"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse Giphy response: %w", err)
+	}
+
+	if len(result.Data) == 0 {
+		return "", fmt.Errorf("no GIFs found")
+	}
+
+	// Optionally pick a random one:
+	index := rand.Intn(len(result.Data))
+	return result.Data[index].Images.Original.URL, nil
 }
