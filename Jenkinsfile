@@ -77,6 +77,7 @@ pipeline {
                                 selector: specific("${buildbox.number}"),
                                 filter: 'vm_metadata.json'
                             )
+                            stash name: 'vm-metadata', includes: "vm_metadata.json"
                         }
                     }
                 }
