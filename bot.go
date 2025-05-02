@@ -114,6 +114,18 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 			return
 		}
 		session.ChannelMessageSend(message.ChannelID, gifURL)
+	case strings.HasPrefix(message.Content, "!gif "):
+		term := strings.TrimSpace(strings.TrimPrefix(message.Content, "!gif "))
+		if term == "" {
+			session.ChannelMessageSend(message.ChannelID, "Usage: !gif <search_term>")
+			return
+		}
+		gifURL, err := getGIFURL(term, 20)
+		if err != nil {
+			session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Couldn't fetch GIF for '%s': %v", term, err))
+			return
+		}
+		session.ChannelMessageSend(message.ChannelID, gifURL)
 	case strings.Contains(message.Content, "!list"):
 		jobList, err := bot.getJenkinsJobList()
 		if err != nil {
