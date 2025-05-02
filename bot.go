@@ -108,7 +108,7 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 		session.ChannelMessageSend(message.ChannelID, gifURL)
 	case strings.Contains(message.Content, "!reek"):
 		session.ChannelMessageSend(message.ChannelID, "Austin TRAN Daniels")
-		gifURL, err := getGIFURL("ramsay-bolton", 20)
+		gifURL, err := getGIFURL("reek_game_of_thrones", 20)
 		if err != nil {
 			Logger.Println("Failed to fetch reek gif, %s", err)
 			return
