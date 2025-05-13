@@ -6,7 +6,7 @@ pipeline {
         CUSTOM_WORKSPACE = "$JENKINS_HOME/workspace/discord_bot"
     }
     parameters {
-        string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:OrangeSquirter/jenkins-discord-bot.git')
+        string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:mjarvis-cyber/jenkins-discord-bot.git')
         reactiveChoice(
             name: 'BRANCH',
             description: 'Select the branch you wish to run',
