@@ -18,10 +18,7 @@ pipeline {
                     sandbox: false,
                     script: 'return []'
                 ],
-                script: [
-                    classpath: [],
-                    sandbox: false,
-                    script: '''
+                script: '''
                     def command = "git ls-remote --heads ${GIT_REPO}"
                     def proc = command.execute()
                     proc.waitFor()
@@ -36,8 +33,7 @@ pipeline {
                         it.replaceAll(/.*refs\\/heads\\//, '').trim()
                     }
                     return branches.reverse()
-                    '''
-                ]
+                '''
             ],
             referencedParameters: 'GIT_REPO'
         )
