@@ -50,7 +50,7 @@ pipeline {
                     dir("${CUSTOM_WORKSPACE}") {
                         // Run the binary using 'script' to create a pseudo-terminal
                         //sh "script -q -c 'HTTPS_PROXY='http://zathras:password1!@172.16.0.1:3128' ./discord_bot' /dev/null &"
-                        sh "script -q -c ./discord_bot' /dev/null &"
+                        sh "script -q -c './discord_bot' /dev/null &"
                     }
                 }
             }
