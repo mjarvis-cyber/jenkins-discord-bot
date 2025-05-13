@@ -7,6 +7,7 @@ pipeline {
     }
     parameters {
         string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:mjarvis-cyber/jenkins-discord-bot.git')
+
         reactiveChoice(
             name: 'BRANCH',
             description: 'Select the branch you wish to run',
@@ -14,26 +15,32 @@ pipeline {
             script: [
                 $class: 'GroovyScript',
                 fallbackScript: [
-                    classpath: [],
+                    $class: 'SecureGroovyScript',
                     sandbox: false,
-                    script: 'return []'
+                    script: 'return []',
+                    classpath: []
                 ],
-                script: '''
-                    def command = "git ls-remote --heads ${GIT_REPO}"
-                    def proc = command.execute()
-                    proc.waitFor()
-                    
-                    if (proc.exitValue() != 0) {
-                        println 'Failed to fetch branches'
-                        return []
-                    }
+                script: [
+                    $class: 'SecureGroovyScript',
+                    sandbox: false,
+                    script: '''
+                        def command = "git ls-remote --heads ${GIT_REPO}"
+                        def proc = command.execute()
+                        proc.waitFor()
 
-                    def output = proc.in.text
-                    def branches = output.readLines().collect {
-                        it.replaceAll(/.*refs\\/heads\\//, '').trim()
-                    }
-                    return branches.reverse()
-                '''
+                        if (proc.exitValue() != 0) {
+                            println 'Failed to fetch branches'
+                            return []
+                        }
+
+                        def output = proc.in.text
+                        def branches = output.readLines().collect {
+                            it.replaceAll(/.*refs\\/heads\\//, '').trim()
+                        }
+                        return branches.reverse()
+                    ''',
+                    classpath: []
+                ]
             ],
             referencedParameters: 'GIT_REPO'
         )
