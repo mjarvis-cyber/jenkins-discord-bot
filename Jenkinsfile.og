@@ -7,7 +7,6 @@ pipeline {
     }
     parameters {
         string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:mjarvis-cyber/jenkins-discord-bot.git')
-
         reactiveChoice(
             name: 'BRANCH',
             description: 'Select the branch you wish to run',
@@ -15,31 +14,29 @@ pipeline {
             script: [
                 $class: 'GroovyScript',
                 fallbackScript: [
-                    $class: 'SecureGroovyScript',
+                    classpath: [],
                     sandbox: false,
-                    script: 'return []',
-                    classpath: []
+                    script: 'return []'
                 ],
                 script: [
-                    $class: 'SecureGroovyScript',
+                    classpath: [],
                     sandbox: false,
                     script: '''
-                        def command = "git ls-remote --heads ${GIT_REPO}"
-                        def proc = command.execute()
-                        proc.waitFor()
+                    def command = "git ls-remote --heads ${GIT_REPO}"
+                    def proc = command.execute()
+                    proc.waitFor()
+                    
+                    if (proc.exitValue() != 0) {
+                        println 'Failed to fetch branches'
+                        return []
+                    }
 
-                        if (proc.exitValue() != 0) {
-                            println 'Failed to fetch branches'
-                            return []
-                        }
-
-                        def output = proc.in.text
-                        def branches = output.readLines().collect {
-                            it.replaceAll(/.*refs\\/heads\\//, '').trim()
-                        }
-                        return branches.reverse()
-                    ''',
-                    classpath: []
+                    def output = proc.in.text
+                    def branches = output.readLines().collect {
+                        it.replaceAll(/.*refs\\/heads\\//, '').trim()
+                    }
+                    return branches.reverse()
+                    '''
                 ]
             ],
             referencedParameters: 'GIT_REPO'
