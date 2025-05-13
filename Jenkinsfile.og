@@ -183,7 +183,7 @@ pipeline {
                 }
                 sh "rm -rf $CUSTOM_WORKSPACE/jenkins-discord-bot*"
                 if (params.BRANCH in ['master', 'main', 'develop']) {
-                    build job: 'Discord Bot', parameters: [ string(name: 'BRANCH', value: 'master'),], wait: false
+                    build job: 'discord-bot', parameters: [ string(name: 'BRANCH', value: 'master'),], wait: false
                 }
                 sh "cp $CUSTOM_WORKSPACE/discord_bot_tmp $CUSTOM_WORKSPACE/discord_bot"
             }
@@ -195,7 +195,7 @@ pipeline {
                 }
                 sh "rm -rf $CUSTOM_WORKSPACE/jenkins-discord-bot*"
                 if (params.BRANCH in ['master', 'main', 'develop']) {
-                    build job: 'Discord Bot', parameters: [ string(name: 'BRANCH', value: 'master'),], wait: false
+                    build job: 'discord-bot', parameters: [ string(name: 'BRANCH', value: 'master'),], wait: false
                 }
             }
         }
