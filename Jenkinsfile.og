@@ -80,7 +80,7 @@ pipeline {
                         sh "git clone ${params.GIT_REPO} --branch ${params.BRANCH}"
                         dir("jenkins-discord-bot") {
                             sh "/usr/local/go/bin/go mod download"
-                            withCredentials([string(credentialsId: 'JENKINS_CREDENTIAL_ID', variable: 'JENKINS_API_TOKEN')]) {
+                            withCredentials([string(credentialsId: 'JENKINS_API_TOKEN', variable: 'JENKINS_API_TOKEN')]) {
                                 // Replace values in the .env file with Jenkins credentials
                                 sh "sed -i 's|JENKINS_TOKEN=.*|JENKINS_TOKEN=${JENKINS_API_TOKEN}|' .env"
                             }
