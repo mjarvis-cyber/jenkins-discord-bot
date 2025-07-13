@@ -1,73 +1,53 @@
 pipeline {
     agent {
-        docker {
-            filename 'Dockerfile'
-            args '-v /tmp:/tmp'
+        node {
+            label 'main'
         }
     }
     environment {
-        CUSTOM_WORKSPACE = "$JENKINS_HOME/workspace/discord_bot"
-        SSH_KEY = credentials('ssh-key')
+        CUSTOM_WORKSPACE = "${JENKINS_HOME}/workspace/${JOB_NAME}"
     }
     parameters {
         string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:OrangeSquirter/jenkins-discord-bot.git')
-        reactiveChoice(
-            name: 'BRANCH',
-            description: 'Select the branch you wish to run',
-            choiceType: 'PT_SINGLE_SELECT',
-            script: [
-                $class: 'GroovyScript',
-                fallbackScript: [
-                    classpath: [],
-                    sandbox: false,
-                    script: 'return []'
-                ],
-                script: [
-                    classpath: [],
-                    sandbox: false,
-                    script: '''
-                    def command = "git ls-remote --heads ${GIT_REPO}"
-                    def proc = command.execute()
-                    proc.waitFor()
-
-                    if (proc.exitValue() != 0) {
-                        println 'Failed to fetch branches'
-                        return []
-                    }
-
-                    def output = proc.in.text
-                    def branches = output.readLines().collect {
-                        it.replaceAll(/.*refs\\/heads\\//, '').trim()
-                    }
-                    return branches.reverse()
-                    '''
-                ]
-            ],
-            referencedParameters: 'GIT_REPO'
-        )
+        string(name: 'JENKINS_ENDPOINT', description: 'Specify jenkins endpoint', defaultValue: 'http://jenkins.pizzasec.com:8080')
+        string(name: 'BRANCH', description: 'Select the branch you wish to run', defaultValue: 'master')
+        string(name: 'PROXMOX_IP', defaultValue: 'cyberops2.pizzasec.com', description: 'ProxMox IP address')
+        string(name: 'PROXMOX_NODE', defaultValue: 'cyberops2', description: 'ProxMox to build the box on')
+        string(name: 'PROXMOX_POOL', defaultValue: 'Admin', description: 'ProxMox resource pool to assign')
+        string(name: 'TEMPLATE', defaultValue: 'ubuntu-24', description: 'Name of the template to use')
+        choice(name: 'CORES', choices: ['2'], description: 'Number of cores that will be allocated to the VM')
+        choice(name: 'MEMORY', choices: ['2048'], description: 'Memory allocation for the VM in MB')
+        string(name: 'STORAGE', defaultValue: '20', description: 'Storage for the VM in GB')
+        string(name: 'VM_NAME', defaultValue: 'discord-bot', description: 'Name of the box to build')
+        string(name: 'ROLE', defaultValue: 'jenkins', description: 'Why is this box being built')
+        choice(name: 'NETWORK', choices: ['vmbr1'], description: 'Network to place the VM on')
+        string(name: 'DOCKER_REGISTRY', defaultValue: 'registry.pizzasec.com', description: 'HTTPS endpoint for private docker registry')
     }
 
     stages {
-        stage('Run Discord Bot') {
-            steps {
-                script {
-                    dir("${CUSTOM_WORKSPACE}") {
-                        sh "script -q -c './discord_bot' /dev/null &"
-                    }
-                }
-            }
-        }
-        stage('Wait for Proceed') {
-            steps {
-                script {
-                    dir("${CUSTOM_WORKSPACE}") {
-                        // Wait for user input to proceed
-                        withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
-                            discordSend title: "Discord Bot", description: "Click 'Proceed' to build new discord bot version", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
+        stage('Build Parallel') {
+            parallel {
+                stage('Build Docker Images'){
+                    agent {
+                        node {
+                            label 'main'
                         }
-                        input message: 'Press "Proceed" to build new bot', submitter: 'user'
+                    }
+                    steps {
+                        script {
+                            def images = build job: 'docker-bake',
+                                parameters: [
+                                    string(name: 'PROXMOX_IP',      value: params.PROXMOX_IP),
+                                    string(name: 'PROXMOX_NODE',    value: params.PROXMOX_NODE),
+                                    string(name: 'PROXMOX_POOL',    value: params.PROXMOX_POOL),
+                                    string(name: 'TEMPLATE',        value: params.TEMPLATE)
+                                ],
+                                propagate: true, 
+                                wait: true
+                        }
                     }
                 }
+<<<<<<< HEAD
             }
         }
         stage('Build new version') {
@@ -95,94 +75,54 @@ pipeline {
                                 // Replace values in the .env file with Jenkins credentials
                                 sh "sed -i 's|DISCORD_TOKEN=.*|DISCORD_TOKEN=${DISCORD_API_TOKEN}|' .env"
                             }
+=======
+                stage('Build VM'){
+                    agent {
+                        node {
+                            label 'main'
+                        }
+                    }
+                    steps {
+                        script {
+                            def buildbox = build job: 'box-builder', 
+                                parameters: [
+                                    string(name: 'PROXMOX_IP',      value: params.PROXMOX_IP),
+                                    string(name: 'PROXMOX_NODE',    value: params.PROXMOX_NODE),
+                                    string(name: 'PROXMOX_POOL',    value: params.PROXMOX_POOL),
+                                    string(name: 'TEMPLATE',        value: params.TEMPLATE),
+                                    string(name: 'CORES',           value: params.CORES),
+                                    string(name: 'MEMORY',          value: params.MEMORY),
+                                    string(name: 'STORAGE',         value: params.STORAGE),
+                                    string(name: 'VM_NAME',         value: params.VM_NAME),
+                                    string(name: 'ROLE',            value: params.ROLE),
+                                    string(name: 'BRANCH',          value: params.BRANCH),
+                                    string(name: 'NETWORK',         value: params.NETWORK)
+                                ], 
+                                propagate: true, 
+                                wait: true
+>>>>>>> 583b24ecac91231e68664a2b7349ce19e813eab7
 
-                            // Build the Go program
-                            sh "go build -o discord_bot_test"
+                            copyArtifacts(
+                                projectName: 'box-builder', 
+                                selector: specific("${buildbox.number}"),
+                                filter: 'vm_metadata.json'
+                            )
+                            stash name: 'vm-metadata', includes: "vm_metadata.json"
                         }
                     }
                 }
             }
         }
-        stage('Test and Stage for Deployment') {
+        stage('Deploy') {
             agent {
-                docker {
-                    image 'golang:latest'
-                    args '-v $CUSTOM_WORKSPACE:$CUSTOM_WORKSPACE --entrypoint /bin/sh'
+                node {
+                    label 'main'
                 }
             }
             steps {
                 script {
-                    // Run the binary
-                    dir("${CUSTOM_WORKSPACE}/jenkins-discord-bot") {
-                        sh "touch bot.log"
-                        def output = sh(script: "./discord_bot_test &", returnStdout: true).trim()
-
-                        // Wait for the expected output for up to 30 seconds
-                        def timeout = 30
-                        def startTime = currentBuild.startTimeInMillis
-                        def waitForOutput = {
-                            while (true) {
-                                output = sh(script: "cat bot.log", returnStdout: true).trim()
-                                if (output.contains('Bot is connected to Discord')) {
-                                    return true
-                                } else {
-                                    sleep(5)
-                                }
-
-                                def elapsedTime = System.currentTimeMillis() - startTime
-                                if (elapsedTime > timeout * 1000) {
-                                    return false
-                                }
-                            }
-                        }()
-
-                        // Terminate the binary after 30 seconds
-                        sh "pkill -f discord_bot_test"
-
-                        // Check if the expected output was received
-                        if (!waitForOutput) {
-                            error "Expected output 'Bot is connected to Discord' not received within ${timeout} seconds"
-                        } else {
-                            sh "cp $CUSTOM_WORKSPACE/jenkins-discord-bot/discord_bot_test $CUSTOM_WORKSPACE/discord_bot_tmp"
-                            sh "cp $CUSTOM_WORKSPACE/jenkins-discord-bot/.env $CUSTOM_WORKSPACE"
-                        }
-                    }
+                    sh "echo DUNZO!!!"
                 }
-            }
-        }
-    }
-    post {
-        success {
-            script {
-                withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
-                    discordSend title: "Discord Bot", description: "Releasing new discord bot version", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
-                }
-                sh "rm -rf $CUSTOM_WORKSPACE/jenkins-discord-bot*"
-                if (params.BRANCH in ['master', 'main', 'develop']) {
-                    build job: 'Discord Bot', parameters: [ string(name: 'BRANCH', value: 'master'),], wait: false
-                }
-                sh "cp $CUSTOM_WORKSPACE/discord_bot_tmp $CUSTOM_WORKSPACE/discord_bot"
-            }
-        }
-        failure {
-            script {
-                withCredentials([string(credentialsId: 'JenkinsWebhook', variable: 'Webhook')]) {
-                    discordSend title: "Discord Bot", description: "Rolling bot back to previous version", link: env.BUILD_URL, result: currentBuild.currentResult, webhookURL: "${Webhook}"
-                }
-                sh "rm -rf $CUSTOM_WORKSPACE/jenkins-discord-bot*"
-                if (params.BRANCH in ['master', 'main', 'develop']) {
-                    build job: 'Discord Bot', parameters: [ string(name: 'BRANCH', value: 'master'),], wait: false
-                }
-            }
-        }
-        always {
-            script {
-                try {
-                    sh 'pkill -f discord_bot'
-                } catch (Exception e) {
-                    echo "Failed to kill discord_bot process: ${e.getMessage()}"
-                }
-                sh "cat /dev/null > $CUSTOM_WORKSPACE/bot.log"
             }
         }
     }
