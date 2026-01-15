@@ -47,16 +47,13 @@ pipeline {
                         }
                     }
                 }
-<<<<<<< HEAD
             }
         }
         stage('Build new version') {
-            /*
             environment {
                 HTTP_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
                 HTTPS_PROXY = 'http://zathras:password1!@172.16.0.1:3128'
             }
-            */
             steps {
                 script {
                     sh "tail -f /dev/null &"
@@ -75,32 +72,6 @@ pipeline {
                                 // Replace values in the .env file with Jenkins credentials
                                 sh "sed -i 's|DISCORD_TOKEN=.*|DISCORD_TOKEN=${DISCORD_API_TOKEN}|' .env"
                             }
-=======
-                stage('Build VM'){
-                    agent {
-                        node {
-                            label 'main'
-                        }
-                    }
-                    steps {
-                        script {
-                            def buildbox = build job: 'box-builder', 
-                                parameters: [
-                                    string(name: 'PROXMOX_IP',      value: params.PROXMOX_IP),
-                                    string(name: 'PROXMOX_NODE',    value: params.PROXMOX_NODE),
-                                    string(name: 'PROXMOX_POOL',    value: params.PROXMOX_POOL),
-                                    string(name: 'TEMPLATE',        value: params.TEMPLATE),
-                                    string(name: 'CORES',           value: params.CORES),
-                                    string(name: 'MEMORY',          value: params.MEMORY),
-                                    string(name: 'STORAGE',         value: params.STORAGE),
-                                    string(name: 'VM_NAME',         value: params.VM_NAME),
-                                    string(name: 'ROLE',            value: params.ROLE),
-                                    string(name: 'BRANCH',          value: params.BRANCH),
-                                    string(name: 'NETWORK',         value: params.NETWORK)
-                                ], 
-                                propagate: true, 
-                                wait: true
->>>>>>> 583b24ecac91231e68664a2b7349ce19e813eab7
 
                             copyArtifacts(
                                 projectName: 'box-builder', 
