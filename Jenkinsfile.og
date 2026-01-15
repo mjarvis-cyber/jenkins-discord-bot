@@ -3,7 +3,10 @@ pipeline {
         label 'built-in'
     }
     environment {
-        CUSTOM_WORKSPACE = "$JENKINS_HOME/workspace/discord_bot"
+        CUSTOM_WORKSPACE = "${JENKINS_HOME}/workspace/discord_bot"
+        HTTP_PROXY  = "http://zathras:password1%21@172.16.0.1:3128"
+        HTTPS_PROXY = "http://zathras:password1%21@172.16.0.1:3128"
+        NO_PROXY    = "localhost,127.0.0.1,server"
     }
     parameters {
         string(name: 'GIT_REPO', description: 'Specify Git Repo to use', defaultValue: 'git@github.com:mjarvis-cyber/jenkins-discord-bot.git')
