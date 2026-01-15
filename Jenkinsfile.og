@@ -62,7 +62,7 @@ pipeline {
                                 sh "sed -i 's|GIPHY_KEY=.*|GIPHY_KEY=${GIPHY_API_KEY}|' .env"
                             }
 
-                            sh "sed -i 's|^JENKINS_URL=.*|JENKINS_URL=http://jenkins.blckwtr.net:8080/|' .env"
+                            sh "sed -i 's|^JENKINS_URL=.*|JENKINS_URL=http://server:8080/|' .env"
 
                             // Build the Go program
                             sh "/usr/local/go/bin/go build -o discord_bot_test"
