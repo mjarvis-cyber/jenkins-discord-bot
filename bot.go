@@ -114,6 +114,14 @@ func (bot *Bot) newMsg(session *discordgo.Session, message *discordgo.MessageCre
 			return
 		}
 		session.ChannelMessageSend(message.ChannelID, gifURL)
+	case strings.Contains(message.Content, "!croikey"):
+		session.ChannelMessageSend(message.ChannelID, "mayte")
+		gifURL, err := getGIFURL("crikey", 20)
+		if err != nil {
+			Logger.Println("Failed to fetch crikey gif, %s", err)
+			return
+		}
+		session.ChannelMessageSend(message.ChannelID, gifURL)
 	case strings.HasPrefix(message.Content, "!gif "):
 		term := strings.TrimSpace(strings.TrimPrefix(message.Content, "!gif "))
 		if term == "" {
